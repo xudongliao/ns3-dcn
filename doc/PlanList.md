@@ -29,3 +29,6 @@
 ## summarize to demo
 
 Waiting List
+
+## Others
+   - [ ] 选择和官方一致还是自己维护一个 repo
