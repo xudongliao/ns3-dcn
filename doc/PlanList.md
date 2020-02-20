@@ -36,10 +36,12 @@ Waiting List
 
 ## Algorithms' own simulation 
 
-| Algorithm                             | Simulation Tools |
-| ------------------------------------- | ---------------- |
-| $D^2TCP\ (including\ DCTCP\ \&\ D^3)$ | ns-3             |
-|                                       |                  |
-|                                       |                  |
-|                                       |                  |
+| Algorithm                             | Simulation Tools | Open-source |
+| ------------------------------------- | ---------------- | ----------- |
+| $D^2TCP\ (including\ DCTCP\ \&\ D^3)$ | ns-3             | no          |
+|                                       |                  |             |
+|                                       |                  |             |
+|                                       |                  |             |
+
+
 
