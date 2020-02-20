@@ -86,6 +86,10 @@ OnOffApplication::GetTypeId (void)
                    TypeIdValue (UdpSocketFactory::GetTypeId ()),
                    MakeTypeIdAccessor (&OnOffApplication::m_tid),
                    MakeTypeIdChecker ())
+    .AddAttribute ("Deadline", "The time that the application requires flows to be completed within, "
+                   "0 means no deadline", TimeValue(Time(0)), 
+                   MakeTimeAccessor(&OnOffApplication::m_deadline),
+                   MakeTimeChecker())
     .AddTraceSource ("Tx", "A new packet is created and is sent",
                      MakeTraceSourceAccessor (&OnOffApplication::m_txTrace),
                      "ns3::Packet::TracedCallback")
@@ -151,6 +155,8 @@ void OnOffApplication::StartApplication () // Called at time specified by Start
   if (!m_socket)
     {
       m_socket = Socket::CreateSocket (GetNode (), m_tid);
+      // Set deadline
+      m_socket->SetDeadline(m_deadline);
       if (Inet6SocketAddress::IsMatchingType (m_peer))
         {
           m_socket->Bind6 ();
