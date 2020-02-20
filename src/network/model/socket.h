@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include "ns3/inet-socket-address.h"
 #include "ns3/inet6-socket-address.h"
+#include "ns3/nstime.h"
 
 namespace ns3 {
 
@@ -870,6 +871,13 @@ public:
    */
   virtual void Ipv6LeaveGroup (void);
 
+
+  /**
+   * \brief Add deadline-aware machanism: set/get deadline. Protocol like D2TCP should override these functions.
+   */
+  virtual void SetDeadline (Time Deadline);
+  virtual Time GetDeadline (void) const;
+
 protected:
   /**
    * \brief Notify through the callback (if set) that the connection has been
@@ -1284,6 +1292,41 @@ public:
   virtual void Print (std::ostream &os) const;
 private:
   uint8_t m_ipv6Tclass; //!< the Tclass carried by the tag
+};
+
+/**
+ * \brief indicates whether this socket is deadline-aware
+ */
+class SocketDeadlineTag: public Tag
+{
+public:
+  SocketDeadlineTag ();
+  void SetDeadline (Time deadline);
+  Time GetDeadline (void) const;
+
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId (void);
+
+  // inherited function, no need to doc.
+  virtual TypeId GetInstanceTypeId (void) const;
+
+  // inherited function, no need to doc.
+  virtual uint32_t GetSerializedSize (void) const;
+
+  // inherited function, no need to doc.
+  virtual void Serialize (TagBuffer i) const;
+
+  // inherited function, no need to doc.
+  virtual void Deserialize (TagBuffer i);
+
+  // inherited function, no need to doc.
+  virtual void Print (std::ostream &os) const;
+  
+private:
+  Time m_deadline;
 };
 
 } // namespace ns3

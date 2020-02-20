@@ -542,6 +542,19 @@ Socket::Ipv6LeaveGroup (void)
   m_ipv6MulticastGroupAddress = Ipv6Address::GetAny ();
 }
 
+void
+Socket::SetDeadline (Time deadline)
+{
+}
+
+Time
+Socket::GetDeadline (void) const
+{
+  return Time(0);
+}
+
+
+
 /***************************************************************
  *           Socket Tags
  ***************************************************************/
@@ -901,5 +914,62 @@ SocketIpv6TclassTag::Print (std::ostream &os) const
 {
   os << "IPV6_TCLASS = " << m_ipv6Tclass;
 }
+
+SocketDeadlineTag::SocketDeadlineTag ()
+{
+}
+
+void
+SocketDeadlineTag::SetDeadline (Time deadline)
+{
+  m_deadline = deadline;
+}
+
+Time
+SocketDeadlineTag::GetDeadline (void) const
+{
+  return m_deadline;
+}
+
+TypeId
+SocketDeadlineTag::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::SocketDeadlineTag")
+    .SetParent<Tag> ()
+    .SetGroupName("Network") 
+    .AddConstructor<SocketDeadlineTag> ()
+    ;
+  return tid;
+}
+
+TypeId 
+SocketDeadlineTag::GetInstanceTypeId (void) const
+{
+  return GetTypeId ();
+}
+
+uint32_t
+SocketDeadlineTag::GetSerializedSize (void) const
+{
+  return sizeof (double);
+}
+
+void
+SocketDeadlineTag::Serialize (TagBuffer i) const
+{
+  i.WriteDouble (m_deadline.GetSeconds ());
+}
+
+void
+SocketDeadlineTag::Deserialize (TagBuffer i)
+{
+  m_deadline = Time::FromDouble(i.ReadDouble (), Time::S);
+}
+void
+SocketDeadlineTag::Print (std::ostream &os) const
+{
+  os << "Socket Deadline Tag = " << m_deadline;
+}
+
 
 } // namespace ns3
