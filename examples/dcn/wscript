@@ -12,3 +12,7 @@ def build(bld):
     obj = bld.create_ns3_program('queue-track',
                                  ['point-to-point', 'applications', 'internet', 'flow-monitor', 'link-monitor'])
     obj.source = ['queue-track.cc', 'cdf.c']
+
+    obj = bld.create_ns3_program('dctcp',
+                                 ['point-to-point', 'applications', 'internet', 'flow-monitor', 'link-monitor'])
+    obj.source = ['dctcp/dctcp.cc']
