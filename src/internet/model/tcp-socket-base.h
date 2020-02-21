@@ -331,6 +331,13 @@ public:
    */
   Time GetClockGranularity (void) const;
 
+
+  /**
+   * inheritted from /network/model/socket, for deadline-aware machanism
+   */
+  virtual void SetDeadline (Time deadline);
+  virtual Time GetDeadline (void) const;
+
   /**
    * \brief Get a pointer to the Tx buffer
    * \return a pointer to the tx buffer
@@ -991,6 +998,13 @@ protected:
   TracedValue<SequenceNumber32> m_highRxAckMark;  //!< Highest ack received
   uint32_t                      m_bytesAckedNotProcessed;  //!< Bytes acked, but not processed
   TracedValue<uint32_t>         m_bytesInFlight; //!< Bytes in flight
+
+  /**
+   * inheritted from /network/model/socket, for deadline-aware machanism
+   */
+  Time              m_deadline;
+  Time              m_deadlineTime;
+
 
   // Options
   bool    m_winScalingEnabled; //!< Window Scale option enabled (RFC 7323)

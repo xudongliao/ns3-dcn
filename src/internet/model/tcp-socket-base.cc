@@ -339,6 +339,8 @@ TcpSocketBase::TcpSocketBase (void)
     m_highRxAckMark (0),
     m_bytesAckedNotProcessed (0),
     m_bytesInFlight (0),
+    m_deadline (0), // daedline-aware
+    m_deadlineTime (0),
     m_winScalingEnabled (false),
     m_rcvWindShift (0),
     m_sndWindShift (0),
@@ -446,6 +448,8 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_highRxAckMark (sock.m_highRxAckMark),
     m_bytesAckedNotProcessed (sock.m_bytesAckedNotProcessed),
     m_bytesInFlight (sock.m_bytesInFlight),
+    m_deadline (sock.m_deadline),
+    m_deadlineTime (sock.m_deadlineTime),
     m_winScalingEnabled (sock.m_winScalingEnabled),
     m_rcvWindShift (sock.m_rcvWindShift),
     m_sndWindShift (sock.m_sndWindShift),
@@ -812,6 +816,17 @@ TcpSocketBase::Connect (const Address & address)
   m_synCount = m_synRetries;
   m_dataRetrCount = m_dataRetries;
 
+  // deadline-machanism
+  if (m_deadline != Time (0))
+    {
+      m_deadlineTime = m_deadline + Simulator::Now();
+    }
+  else
+    {
+      m_deadlineTime = Time(0);
+    } 
+  
+
   // DoConnect() will do state-checking and send a SYN packet
   return DoConnect ();
 }
@@ -847,6 +862,8 @@ TcpSocketBase::Close (void)
       NS_LOG_WARN ("Socket " << this << " << unread rx data during close.  Sending reset." <<
                    "This is probably due to a bad sink application; check its code");
       SendRST ();
+      // tmp
+      // CloseAndNotify ();
       return 0;
     }
 
@@ -1425,7 +1442,10 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
       UpdateWindowSize (tcpHeader);
 
     }
-
+    /**
+     * TODO Check @ Zilong
+     * we need to deal with deadline tag
+     */
 
 
   if (m_rWnd.Get () == 0 && m_persistEvent.IsExpired ())
@@ -2668,6 +2688,11 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
 
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::SendEmptyPacket, this, flags);
     }
+    
+    /**
+     * TODO Check @ Zilong
+     * ? For D2TCP - Check if deadline have passed
+     */
 }
 
 /* This function closes the endpoint completely. Called upon RST_TX action. */
@@ -4030,6 +4055,23 @@ TcpSocketBase::GetClockGranularity (void) const
 {
   return m_clockGranularity;
 }
+
+/**
+ * deadline mechanism
+ */
+void 
+TcpSocketBase::SetDeadline (Time deadline)
+{
+  NS_ASSERT (m_deadline == Time (0));
+  m_deadline = deadline;
+}
+  
+Time 
+TcpSocketBase::GetDeadline (void) const
+{
+  return m_deadline;
+}
+
 
 Ptr<TcpTxBuffer>
 TcpSocketBase::GetTxBuffer (void) const
