@@ -1,0 +1,12 @@
+# source code
+1) /src/internet/model/tcp-dctcp.cc
+2) /src/traffic-control/model/dctcp-queue-disc.cc
+
+# usage
+1) enable DCTCP in switch(tag ech): 
+	+ 	XX.SetRootQueueDisc ("ns3::DctcpQueueDisc")
+2) set the ECN tagging threshold in switch: 
+	+   Config::SetDefault ("ns3::DctcpQueueDisc::MinTh", DoubleValue (threhold));
+  	+	Config::SetDefault ("ns3::DctcpQueueDisc::MaxTh", DoubleValue (threhold));
+3) use DCTCP socket in the end-host:
+	+	Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
