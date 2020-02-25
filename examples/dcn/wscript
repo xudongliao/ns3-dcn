@@ -16,3 +16,7 @@ def build(bld):
     obj = bld.create_ns3_program('dctcp',
                                  ['point-to-point', 'applications', 'internet', 'flow-monitor', 'link-monitor'])
     obj.source = ['dctcp/dctcp.cc']
+
+    obj = bld.create_ns3_program('pfabric',
+                                 ['point-to-point', 'applications', 'internet', 'flow-monitor', 'link-monitor'])
+    obj.source = ['pfabric/pfabric.cc']

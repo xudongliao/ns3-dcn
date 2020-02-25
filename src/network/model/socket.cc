@@ -418,6 +418,121 @@ Socket::IsIpRecvTos (void) const
   return m_ipRecvTos;
 }
 
+SocketPriorityTag::SocketPriorityTag ()
+{
+}
+
+void
+SocketPriorityTag::SetPriority (uint8_t priority)
+{
+  m_priority = priority;
+}
+
+uint8_t
+SocketPriorityTag::GetPriority (void) const
+{
+  return m_priority;
+}
+
+TypeId
+SocketPriorityTag::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::SocketPriorityTag")
+    .SetParent<Tag> ()
+    .SetGroupName("Network")
+    .AddConstructor<SocketPriorityTag> ()
+    ;
+  return tid;
+}
+
+TypeId
+SocketPriorityTag::GetInstanceTypeId (void) const
+{
+  return GetTypeId ();
+}
+
+uint32_t
+SocketPriorityTag::GetSerializedSize (void) const
+{
+  return sizeof (uint8_t);
+}
+
+void
+SocketPriorityTag::Serialize (TagBuffer i) const
+{
+  i.WriteU8 (m_priority);
+}
+
+void
+SocketPriorityTag::Deserialize (TagBuffer i)
+{
+  m_priority = i.ReadU8();
+}
+
+void
+SocketPriorityTag::Print (std::ostream &os) const
+{
+  os << "SO_PRIORITY = " << m_priority;
+}
+
+
+SocketFlowidTag::SocketFlowidTag ()
+{
+}
+
+void
+SocketFlowidTag::SetFlowid (uint8_t flowid)
+{
+  m_flowid = flowid;
+}
+
+uint8_t
+SocketFlowidTag::GetFlowid(void) const
+{
+  return m_flowid;
+}
+
+TypeId
+SocketFlowidTag::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::SocketFlowidTag")
+    .SetParent<Tag> ()
+    .SetGroupName("Network")
+    .AddConstructor<SocketFlowidTag> ()
+    ;
+  return tid;
+}
+
+TypeId
+SocketFlowidTag::GetInstanceTypeId (void) const
+{
+  return GetTypeId ();
+}
+
+uint32_t
+SocketFlowidTag::GetSerializedSize (void) const
+{
+  return sizeof (uint8_t);
+}
+
+void
+SocketFlowidTag::Serialize (TagBuffer i) const
+{
+  i.WriteU8 (m_flowid);
+}
+
+void
+SocketFlowidTag::Deserialize (TagBuffer i)
+{
+  m_flowid = i.ReadU8();
+}
+
+void
+SocketFlowidTag::Print (std::ostream &os) const
+{
+  os << "SO_FLOWID = " << m_flowid;
+}
+
 void
 Socket::SetIpv6Tclass (int tclass)
 {

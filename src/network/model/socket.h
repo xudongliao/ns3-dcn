@@ -1193,6 +1193,100 @@ private:
 };
 
 /**
+ * \brief indicates which flow the packet belongs to.
+ * This tag is for pfabric.
+ */
+class SocketFlowidTag : public Tag
+{
+public:
+  SocketFlowidTag ();
+
+  /**
+   * \brief Set the tag's flowid
+   *
+   * \param flowid
+   */
+  void SetFlowid (uint8_t flowid);
+
+  /**
+   * \brief Get the tag's flowid
+   *
+   * \returns the flowid
+   */
+  uint8_t GetFlowid (void) const;
+
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId (void);
+
+  // inherited function, no need to doc.
+  virtual TypeId GetInstanceTypeId (void) const;
+
+  // inherited function, no need to doc.
+  virtual uint32_t GetSerializedSize (void) const;
+
+  // inherited function, no need to doc.
+  virtual void Serialize (TagBuffer i) const;
+
+  // inherited function, no need to doc.
+  virtual void Deserialize (TagBuffer i);
+
+  // inherited function, no need to doc.
+  virtual void Print (std::ostream &os) const;
+private:
+  uint8_t m_flowid;  //!< the flowid carried by the tag
+};
+
+/**
+ * \brief indicates the priority of a packet.
+ */
+class SocketPriorityTag : public Tag
+{
+public:
+  SocketPriorityTag ();
+
+  /**
+   * \brief Set the tag's priority
+   *
+   * \param priority the priority
+   */
+  void SetPriority (uint8_t priority);
+
+  /**
+   * \brief Get the tag's priority
+   *
+   * \returns the priority
+   */
+  uint8_t GetPriority (void) const;
+
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId (void);
+
+  // inherited function, no need to doc.
+  virtual TypeId GetInstanceTypeId (void) const;
+
+  // inherited function, no need to doc.
+  virtual uint32_t GetSerializedSize (void) const;
+
+  // inherited function, no need to doc.
+  virtual void Serialize (TagBuffer i) const;
+
+  // inherited function, no need to doc.
+  virtual void Deserialize (TagBuffer i);
+
+  // inherited function, no need to doc.
+  virtual void Print (std::ostream &os) const;
+private:
+  uint8_t m_priority;  //!< the priority carried by the tag
+};
+
+
+/**
  * \brief indicates whether the socket has IP_TOS set.
  * This tag is for IPv4 socket.
  */

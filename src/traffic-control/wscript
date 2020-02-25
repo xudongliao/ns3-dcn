@@ -22,6 +22,7 @@ def build(bld):
       'model/tcn-queue-disc.cc',
       'model/delay-queue-disc.cc',
       'model/dctcp-queue-disc.cc',
+      'model/pfabric-queue-disc.cc',
       'helper/traffic-control-helper.cc',
       'helper/queue-disc-container.cc'
         ]
@@ -48,6 +49,7 @@ def build(bld):
       'model/tcn-queue-disc.h',
       'model/delay-queue-disc.h',
       'model/dctcp-queue-disc.h',
+      'model/pfabric-queue-disc.h',
       'helper/traffic-control-helper.h',
       'helper/queue-disc-container.h'
         ]
