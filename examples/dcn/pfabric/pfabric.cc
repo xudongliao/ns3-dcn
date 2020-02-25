@@ -94,7 +94,7 @@ void InstallApplications (NodeContainer servers)
     for (int receiverIndex = 0; receiverIndex < totalServerCount; ++receiverIndex)
     {
       if (senderIndex == receiverIndex) continue;
-      
+
       flowid++;
       InstallTcpApplication(servers, senderIndex, receiverIndex, flowid);
     } 
@@ -106,7 +106,7 @@ void ConfigTcp()
 {
   NS_LOG_INFO ("Enabling Tcp");
 
-  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
+  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpNewReno::GetTypeId ()));
   Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(PACKET_SIZE));
   Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
   Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (1000)));

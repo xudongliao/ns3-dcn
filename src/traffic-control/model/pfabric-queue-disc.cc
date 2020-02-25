@@ -369,67 +369,6 @@ PfabricQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
       return false;
     }
 
-  uint32_t dropType = DTYPE_NONE;
-  if (m_qAvg >= m_minTh && nQueued > 1)
-    {
-      Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
-      Ipv4Header header;
-      bool isIpv4Item = (ipv4Item != 0);
-      if (isIpv4Item)
-        {
-          header = ipv4Item -> GetHeader();
-          NS_LOG_DEBUG("\t Header: " << header);
-        }
-      
-      if ((!m_isGentle && m_qAvg >= m_maxTh) ||
-          (m_isGentle && m_qAvg >= 2 * m_maxTh))
-        {
-          NS_LOG_DEBUG ("adding DROP FORCED MARK");
-          dropType = DTYPE_FORCED;
-        }
-      }
-  else
-    {
-      // No packets are being dropped
-      m_vProb = 0.0;
-      m_old = 0;
-    }
-
- Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
-  Ipv4Header header;
-  bool isIpv4Item = (ipv4Item != 0);
-  if (isIpv4Item)
-  {
-    header = ipv4Item -> GetHeader();
-    NS_LOG_DEBUG("\t Header: " << header);
-  }
-
-  if (dropType == DTYPE_UNFORCED)
-    {
-      NS_LOG_DEBUG ("\t Dropping\\Marking due to Prob Mark " << m_qAvg);
-
-      if (isIpv4Item &&
-          header.GetEcn() == Ipv4Header::ECN_ECT1)
-      {
-        NS_LOG_DEBUG ("\t Marking CE due to DTYPE_UNFORCED ");
-        header.SetEcn(Ipv4Header::ECN_CE);
-        ipv4Item->SetHeader(header);
-        m_stats.unforcedMarking++;
-      }
-    }
-  else if (dropType == DTYPE_FORCED)
-    {
-      NS_LOG_DEBUG ("\t Dropping\\Marking due to Hard Mark " << m_qAvg);
-      if (isIpv4Item &&
-          header.GetEcn() == Ipv4Header::ECN_ECT1)
-      {
-        NS_LOG_DEBUG ("\t Marking CE Due to DTYPE_FORCED" );
-        header.SetEcn(Ipv4Header::ECN_CE);
-        ipv4Item->SetHeader(header);
-        m_stats.forcedMarking++;
-      }
-
-    }
   GetInternalQueue (0)->Enqueue (item);
 
   NS_LOG_LOGIC ("Number packets " << GetInternalQueue (0)->GetNPackets ());

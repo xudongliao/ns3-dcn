@@ -1,0 +1,13 @@
+# source code
+1) /src/network/utils/pfabric-queue.cc
+2) /src/traffic-control/model/pfabric-queue-disc.cc
+3) /src/applications/model/pfabric-bulk-send-application.cc
+4) /src/applications/helper/pfabric-bulk-send-helper.cc
+
+in src/network/model/socket.cc add prioritytTag and flowidTag.
+
+# usage
+1) enable pfabric in switch(tag ech): 
+	+ 	XX.SetRootQueueDisc ("ns3::PfabricQueueDisc");
+2) set the switch buffer in switch: 
+	+   Config::SetDefault ("ns3::PfabricQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE));
