@@ -339,8 +339,6 @@ TcpSocketBase::TcpSocketBase (void)
     m_highRxAckMark (0),
     m_bytesAckedNotProcessed (0),
     m_bytesInFlight (0),
-    m_deadline (0), // daedline-aware
-    m_deadlineTime (0),
     m_winScalingEnabled (false),
     m_rcvWindShift (0),
     m_sndWindShift (0),
@@ -368,7 +366,13 @@ TcpSocketBase::TcpSocketBase (void)
     m_isPause (false),
     m_oldPath (0),
     m_congestionControl (0),
-    m_isFirstPartialAck (true)
+    m_isFirstPartialAck (true),
+    // daedline-aware
+    m_isDeadlineEnabled (false),
+    m_deadline (0), 
+    m_deadlineTime (0),
+    m_bytesToTx (0),
+    m_bytesHasSent (0)
 {
   NS_LOG_FUNCTION (this);
   m_rxBuffer = CreateObject<TcpRxBuffer> ();
@@ -448,8 +452,6 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_highRxAckMark (sock.m_highRxAckMark),
     m_bytesAckedNotProcessed (sock.m_bytesAckedNotProcessed),
     m_bytesInFlight (sock.m_bytesInFlight),
-    m_deadline (sock.m_deadline),
-    m_deadlineTime (sock.m_deadlineTime),
     m_winScalingEnabled (sock.m_winScalingEnabled),
     m_rcvWindShift (sock.m_rcvWindShift),
     m_sndWindShift (sock.m_sndWindShift),
@@ -477,7 +479,13 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_oldPath (0),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
-    m_rxTrace (sock.m_rxTrace)
+    m_rxTrace (sock.m_rxTrace),
+    // daedline-aware
+    m_isDeadlineEnabled (sock.m_isDeadlineEnabled),
+    m_deadline (sock.m_deadline), 
+    m_deadlineTime (sock.m_deadlineTime),
+    m_bytesToTx (sock.m_bytesToTx),
+    m_bytesHasSent (sock.m_bytesHasSent)
 {
   NS_LOG_FUNCTION (this);
   NS_LOG_LOGIC ("Invoked the copy constructor");
@@ -863,7 +871,7 @@ TcpSocketBase::Close (void)
                    "This is probably due to a bad sink application; check its code");
       SendRST ();
       // tmp
-      // CloseAndNotify ();
+      CloseAndNotify ();
       return 0;
     }
 
@@ -1442,10 +1450,7 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
       UpdateWindowSize (tcpHeader);
 
     }
-    /**
-     * TODO Check @ Zilong
-     * we need to deal with deadline tag
-     */
+
 
 
   if (m_rWnd.Get () == 0 && m_persistEvent.IsExpired ())
@@ -2645,6 +2650,20 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
     }
   }
 
+  // deadline support
+  if (m_tcb->m_ecnConn && m_isDeadlineEnabled && m_deadline != Time (0))
+  { 
+    if (m_deadlineTime < Simulator::Now () &&  !(flags & (TcpHeader::RST | TcpHeader::FIN)))
+    {
+      Doclose ();
+      return;
+    }
+    SocketDeadlineTag deadlineTag;
+    deadlineTag.SetDeadline (m_deadlineTime);
+    p->AddPacketTag (deadlineTag);
+  }
+
+
   m_txTrace (p, header, this);
 
   if (m_endPoint != 0)
@@ -2688,11 +2707,6 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
 
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::SendEmptyPacket, this, flags);
     }
-    
-    /**
-     * TODO Check @ Zilong
-     * ? For D2TCP - Check if deadline have passed
-     */
 }
 
 /* This function closes the endpoint completely. Called upon RST_TX action. */
@@ -3052,6 +3066,19 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
         }
       }
 
+      // deadline support
+      if (m_tcb->m_ecnConn && m_isDeadlineEnabled && m_deadline != Time (0))
+      { 
+        if (m_deadlineTime < Simulator::Now ())
+        {
+          Doclose ();
+          return 0;
+        }
+        SocketDeadlineTag deadlineTag;
+        deadlineTag.SetDeadline (m_deadlineTime);
+        p->AddPacketTag (deadlineTag);
+      }
+
 
       if (m_isPause)
       {
@@ -3293,6 +3320,16 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
   {
     NS_LOG_LOGIC (this << "Received CWR in TCP header");
     m_tcb->m_demandCWR = false;
+  }
+
+  // XXX deadline-aware
+  if (m_tcb->m_ecnConn && m_isDeadlineEnabled)
+  {
+    SocketDeadlineTag deadlineTag;
+    if (packet->RemovePacketTag(deadlineTag) && deadlineTag.GetDeadline () < Simulator::Now())
+    {
+      NS_LOG_INFO ("Deadline is exceeded by " << (Simulator::Now() - deadlineTag.GetDeadline ()));
+    }
   }
 
   if (m_tcb->m_demandCWR)
@@ -4072,6 +4109,29 @@ TcpSocketBase::GetDeadline (void) const
   return m_deadline;
 }
 
+void
+TcpSocketBase::SetBytesToTx (uint64_t bytes)
+{
+  m_bytesToTx = bytes;
+}
+
+uint64_t
+GetBytesToTx (void)
+{
+  return m_bytesToTx;
+}
+
+void
+TcpSocketBase::SetBytesHasSent (uint64_t bytes)
+{
+  m_bytesHasSent = bytes;
+}
+
+uint64_t
+GetBytesHasSent (void)
+{
+  return m_bytesHasSent;
+}
 
 Ptr<TcpTxBuffer>
 TcpSocketBase::GetTxBuffer (void) const

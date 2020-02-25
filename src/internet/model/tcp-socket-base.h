@@ -331,13 +331,6 @@ public:
    */
   Time GetClockGranularity (void) const;
 
-
-  /**
-   * inheritted from /network/model/socket, for deadline-aware machanism
-   */
-  virtual void SetDeadline (Time deadline);
-  virtual Time GetDeadline (void) const;
-
   /**
    * \brief Get a pointer to the Tx buffer
    * \return a pointer to the tx buffer
@@ -999,13 +992,6 @@ protected:
   uint32_t                      m_bytesAckedNotProcessed;  //!< Bytes acked, but not processed
   TracedValue<uint32_t>         m_bytesInFlight; //!< Bytes in flight
 
-  /**
-   * inheritted from /network/model/socket, for deadline-aware machanism
-   */
-  Time              m_deadline;
-  Time              m_deadlineTime;
-
-
   // Options
   bool    m_winScalingEnabled; //!< Window Scale option enabled (RFC 7323)
   uint8_t m_rcvWindShift;      //!< Window shift to apply to outgoing segments
@@ -1055,6 +1041,27 @@ protected:
   bool                      m_isPauseEnabled;
   bool                      m_isPause;
   uint32_t                  m_oldPath;
+
+
+  // deadline-aware support
+  // D2TCP support
+  /**
+   * inheritted from /network/model/socket, for deadline-aware machanism
+   */
+  bool              m_isDeadlineEnabled;
+  Time              m_deadline;
+  Time              m_deadlineTime; // the real time need to finish the flow before
+  uint64_t          m_bytesToTx;
+  uint64_t          m_bytesHasSent;
+
+  virtual void SetDeadline (Time deadline);
+  virtual Time GetDeadline (void) const;
+  virtual void SetBytesToTx (uint64_t bytes);
+  virtual uint64_t GetBytesToTx (void) const;
+  virtual void SetBytesHasSent (uint64_t bytes);
+  virtual uint64_t GetBytesHasSent (void) const;
+
+
 
   // Resequence buffer
   Ptr<TcpPauseBuffer>       m_pauseBuffer;

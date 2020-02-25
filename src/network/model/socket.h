@@ -871,12 +871,14 @@ public:
    */
   virtual void Ipv6LeaveGroup (void);
 
-
+  // deadline aware support
   /**
    * \brief Add deadline-aware machanism: set/get deadline. Protocol like D2TCP should override these functions.
    */
   virtual void SetDeadline (Time Deadline);
   virtual Time GetDeadline (void) const;
+  virtual void SetBytesToTx (uint64_t bytes);
+  virtual uint64_t GetBytesToTx (void) const;
 
 protected:
   /**
@@ -1326,7 +1328,7 @@ public:
   virtual void Print (std::ostream &os) const;
   
 private:
-  Time m_deadline;
+  Time m_deadlineFinish;
 };
 
 } // namespace ns3

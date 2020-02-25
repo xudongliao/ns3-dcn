@@ -163,6 +163,9 @@ private:
   EventId         m_startStopEvent;     //!< Event id for next start or stop event
   EventId         m_sendEvent;    //!< Event id of pending "send packet" event
   TypeId          m_tid;          //!< Type of the socket used
+
+  // deadline-aware support
+  // D2TCP support: app's m_maxBytes must set un-zero
   Time            m_deadline;     //!< time that the flow must be finished
 
   /// Traced Callback: transmitted packets.

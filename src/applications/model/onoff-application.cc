@@ -155,8 +155,12 @@ void OnOffApplication::StartApplication () // Called at time specified by Start
   if (!m_socket)
     {
       m_socket = Socket::CreateSocket (GetNode (), m_tid);
-      // Set deadline
-      m_socket->SetDeadline(m_deadline);
+      
+      // deadline-aware support
+      // set deadline
+      m_socket->SetDeadline (m_deadline);
+      m_socket->SetBytesToTx (m_maxBytes);
+
       if (Inet6SocketAddress::IsMatchingType (m_peer))
         {
           m_socket->Bind6 ();

@@ -542,6 +542,8 @@ Socket::Ipv6LeaveGroup (void)
   m_ipv6MulticastGroupAddress = Ipv6Address::GetAny ();
 }
 
+
+// deadline-aware support
 void
 Socket::SetDeadline (Time deadline)
 {
@@ -552,6 +554,18 @@ Socket::GetDeadline (void) const
 {
   return Time(0);
 }
+
+void
+Socket::SetDeadline (Time Deadline)
+{
+}
+
+uint64_t
+Socket::GetBtyesToTx (void) const
+{
+  return 0;
+}
+
 
 
 
@@ -922,13 +936,13 @@ SocketDeadlineTag::SocketDeadlineTag ()
 void
 SocketDeadlineTag::SetDeadline (Time deadline)
 {
-  m_deadline = deadline;
+  m_deadlineFinish = deadline;
 }
 
 Time
 SocketDeadlineTag::GetDeadline (void) const
 {
-  return m_deadline;
+  return m_deadlineFinish;
 }
 
 TypeId
@@ -957,18 +971,18 @@ SocketDeadlineTag::GetSerializedSize (void) const
 void
 SocketDeadlineTag::Serialize (TagBuffer i) const
 {
-  i.WriteDouble (m_deadline.GetSeconds ());
+  i.WriteDouble (m_deadlineFinish.GetSeconds ());
 }
 
 void
 SocketDeadlineTag::Deserialize (TagBuffer i)
 {
-  m_deadline = Time::FromDouble(i.ReadDouble (), Time::S);
+  m_deadlineFinish = Time::FromDouble(i.ReadDouble (), Time::S);
 }
 void
 SocketDeadlineTag::Print (std::ostream &os) const
 {
-  os << "Socket Deadline Tag = " << m_deadline;
+  os << "Socket Deadline Tag = " << m_deadlineFinish;
 }
 
 

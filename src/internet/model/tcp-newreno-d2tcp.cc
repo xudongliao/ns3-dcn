@@ -16,223 +16,220 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#include "tcp-congestion-ops.h"
-#include "tcp-socket-base.h"
+#include "tcp-newreno-d2tcp.h"
 #include "ns3/log.h"
+#include "ns3/simulator.h"
+#include <cmath>
+
+
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("TcpCongestionOps");
-
-NS_OBJECT_ENSURE_REGISTERED (TcpCongestionOps);
-
-TypeId
-TcpCongestionOps::GetTypeId (void)
-{
-  static TypeId tid = TypeId ("ns3::TcpCongestionOps")
-    .SetParent<Object> ()
-    .SetGroupName ("Internet")
-  ;
-  return tid;
-}
-
-TcpCongestionOps::TcpCongestionOps () : Object ()
-{
-}
-
-TcpCongestionOps::TcpCongestionOps (const TcpCongestionOps &other) : Object (other)
-{
-}
-
-TcpCongestionOps::~TcpCongestionOps ()
-{
-}
-
-void
-TcpCongestionOps::CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBase> socket)
-{
-  if (ev == CA_EVENT_ECN_NO_CE)
-  {
-    tcb->m_demandCWR = false;
-  }
-}
-
-uint32_t
-TcpCongestionOps::GetCwnd(Ptr<TcpSocketState> tcb)
-{
-  return std::max(tcb->m_cWnd.Get() / 2, tcb->m_segmentSize);
-}
-
-void
-TcpCongestionOps::SendEmptyPacket(Ptr<TcpSocketBase> socket, uint32_t flags)
-{
-  socket->SendEmptyPacket(flags);
-}
-
-// RENO
-
-NS_OBJECT_ENSURE_REGISTERED (TcpNewReno);
+NS_LOG_COMPONENT_DEFINE ("TcpD2TCP");
+NS_OBJECT_ENSURE_REGISTERED (TcpD2TCP);
 
 TypeId
-TcpNewReno::GetTypeId (void)
+TcpD2TCP::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::TcpNewReno")
-    .SetParent<TcpCongestionOps> ()
+  static TypeId tid = TypeId ("ns3::TcpD2TCP")
+    .SetParent<TcpNewReno> ()
     .SetGroupName ("Internet")
-    .AddConstructor<TcpNewReno> ()
-  ;
-  return tid;
+    ;
 }
 
-TcpNewReno::TcpNewReno (void) : TcpCongestionOps ()
+TcpD2TCP::TcpD2TCP () :
+ m_bytesAcked (0),
+ m_ecnBytesAcked (0),
+ m_alpha (0),
+ m_g (static_cast<double> (1/16)),
+ m_ceFraction (0),
+ m_deadlineImminence (0),
+ m_penality (0),
+ m_timeToAchieve (0),
+ m_timeRemain (0)
 {
   NS_LOG_FUNCTION (this);
 }
 
-TcpNewReno::TcpNewReno (const TcpNewReno& sock)
-  : TcpCongestionOps (sock)
+TcpD2TCP::TcpD2TCP (const TcpD2TCP &sock) :
+ m_bytesAcked (sock.m_bytesAcked),
+ m_ecnBytesAcked (sock.m_ecnBytesAcked),
+ m_alpha (sock.m_alpha),
+ m_g (static_cast<double> (sock.m_g)),
+ m_ceFraction (sock.m_ceFraction),
+ m_deadlineImminence (sock.m_deadlineImminence),
+ m_penality (sock.m_penality),
+ m_timeToAchieve (sock.m_timeToAchieve),
+ m_timeRemain (sock.m_timeRemain)
 {
   NS_LOG_FUNCTION (this);
+  NS_LOG_LOGIC ("Invoked the copy constructor");
 }
 
-TcpNewReno::~TcpNewReno (void)
+TcpD2TCP::~TcpD2TCP ()
 {
 }
 
-/**
- * \brief Tcp NewReno slow start algorithm
- *
- * Defined in RFC 5681 as
- *
- * > During slow start, a TCP increments cwnd by at most SMSS bytes for
- * > each ACK received that cumulatively acknowledges new data.  Slow
- * > start ends when cwnd exceeds ssthresh (or, optionally, when it
- * > reaches it, as noted above) or when congestion is observed.  While
- * > traditionally TCP implementations have increased cwnd by precisely
- * > SMSS bytes upon receipt of an ACK covering new data, we RECOMMEND
- * > that TCP implementations increase cwnd, per:
- * >
- * >    cwnd += min (N, SMSS)                      (2)
- * >
- * > where N is the number of previously unacknowledged bytes acknowledged
- * > in the incoming ACK.
- *
- * The ns-3 implementation respect the RFC definition. Linux does something
- * different:
- * \verbatim
-u32 tcp_slow_start(struct tcp_sock *tp, u32 acked)
-  {
-    u32 cwnd = tp->snd_cwnd + acked;
-
-    if (cwnd > tp->snd_ssthresh)
-      cwnd = tp->snd_ssthresh + 1;
-    acked -= cwnd - tp->snd_cwnd;
-    tp->snd_cwnd = min(cwnd, tp->snd_cwnd_clamp);
-
-    return acked;
-  }
-  \endverbatim
- *
- * As stated, we want to avoid the case when a cumulative ACK increases cWnd more
- * than a segment size, but we keep count of how many segments we have ignored,
- * and return them.
- *
- * \param tcb internal congestion state
- * \param segmentsAcked count of segments acked
- * \return the number of segments not considered for increasing the cWnd
- */
-uint32_t
-TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
-{
-  NS_LOG_FUNCTION (this << tcb << segmentsAcked);
-
-  if (segmentsAcked >= 1)
-    {
-      tcb->m_cWnd += tcb->m_segmentSize;
-      NS_LOG_INFO ("In SlowStart, updated to cwnd " << tcb->m_cWnd << " ssthresh " << tcb->m_ssThresh);
-      return segmentsAcked - 1;
-    }
-
-  return 0;
-}
-
-/**
- * \brief NewReno congestion avoidance
- *
- * During congestion avoidance, cwnd is incremented by roughly 1 full-sized
- * segment per round-trip time (RTT).
- *
- * \param tcb internal congestion state
- * \param segmentsAcked count of segments acked
- */
-void
-TcpNewReno::CongestionAvoidance (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
-{
-  NS_LOG_FUNCTION (this << tcb << segmentsAcked);
-
-  if (segmentsAcked > 0)
-    {
-      double adder = static_cast<double> (tcb->m_segmentSize * tcb->m_segmentSize) / tcb->m_cWnd.Get ();
-      adder = std::max (1.0, adder);
-      tcb->m_cWnd += static_cast<uint32_t> (adder);
-      NS_LOG_INFO ("In CongAvoid, updated to cwnd " << tcb->m_cWnd <<
-                   " ssthresh " << tcb->m_ssThresh);
-    }
-}
-
-/**
- * \brief Try to increase the cWnd following the NewReno specification
- *
- * \see SlowStart
- * \see CongestionAvoidance
- *
- * \param tcb internal congestion state
- * \param segmentsAcked count of segments acked
- */
-void
-TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
-{
-  NS_LOG_FUNCTION (this << tcb << segmentsAcked);
-
-  if (tcb->m_cWnd < tcb->m_ssThresh)
-    {
-      segmentsAcked = SlowStart (tcb, segmentsAcked);
-    }
-
-  if (tcb->m_cWnd >= tcb->m_ssThresh)
-    {
-      CongestionAvoidance (tcb, segmentsAcked);
-    }
-
-  /* At this point, we could have segmentsAcked != 0. This because RFC says
-   * that in slow start, we should increase cWnd by min (N, SMSS); if in
-   * slow start we receive a cumulative ACK, it counts only for 1 SMSS of
-   * increase, wasting the others.
-   *
-   * // Uncorrect assert, I am sorry
-   * NS_ASSERT (segmentsAcked == 0);
-   */
-}
 
 std::string
-TcpNewReno::GetName () const
+TcpD2TCP::GetName () const
 {
-  return "TcpNewReno";
+  return "D2TCP";
+}
+
+
+void
+TcpD2TCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
+        const Time &rtt, bool withECE, SequenceNumber32 highTxMark, SequenceNumber32 ackNumber)
+{
+  NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt << withECE << highTxMark << ackNumber);
+  m_bytesAcked += segmentsAcked * tcb->m_segmentSize;
+
+  // socket modified
+  tcb->m_bytesHasSent += segmentAcked * tcb->m_segmentSize;
+
+  if (withECE) {
+    m_ecnBytesAcked += segmentsAcked * tcb->m_segmentSize;
+  }
+  if (ackNumber >= m_highTxMark)
+  {
+    m_highTxMark = highTxMark;
+    UpdateAlpha ();
+    UpdateTimeToAcheive (static_cast<double>(tcb->Window()), static_cast<double>(tcb->m_bytesToTx - tcb->m_bytesHasSent));
+    UpdateDeadlineImminence ();
+    UpdatePenality ();
+  }
+}
+
+
+void
+TcpD2TCP::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
+{
+    // In CA_CWR, the D2TCP keeps the windows size like DCTCP
+  if (tcb->m_congState != TcpSocketState::CA_CWR)
+  {
+    TcpNewReno::IncreaseWindow(tcb, segmentsAcked);
+  }
 }
 
 uint32_t
-TcpNewReno::GetSsThresh (Ptr<TcpSocketState> state,
-                         uint32_t bytesInFlight)
+TcpD2TCP::GetSsThresh (Ptr<TcpSocketState> tcb, uint32_t bytesInFlight) // TODO
 {
-  NS_LOG_FUNCTION (this << state << bytesInFlight);
+  NS_LOG_FUNCTION (this << tcb << bytesInFlight);
+  if (tcb->m_congState == TcpSocketState::CA_RECOVERY)
+  {
+      return TcpNewReno::GetSsThresh (tcb, bytesInFlight);
+  }
+  uint32_t newSsThresh = std::max (static_cast<uint32_t>((1 - m_penality / 2) * tcb->m_cWnd), bytesInFlight / 2);
+  NS_LOG_LOGIC (this << Simulator::Now () << "new SsThresh" << newSsThresh);
+  return newSsThresh;
+}
 
-  return std::max (2 * state->m_segmentSize, bytesInFlight / 2);
+uint32_t
+TcpD2TCP::GetCwnd(Ptr<TcpSocketState> tcb) // TODO
+{
+  NS_LOG_FUNCTION (this << tcb);
+  
+  uint32_t newCwnd;
+  if (m_penality)
+  {
+    newCwnd = static_cast<uint32_t>(tcb->m_cWnd + tcb->m_segmentSize);
+  }
+  else
+  {
+    newCwnd = = static_cast<uint32_t>((1 - m_penality / 2) * tcb->m_cWnd );
+  }
+  NS_LOG_LOGIC (this << Simulator::Now() << "new cwnd: " << newCwnd );
+  return newCwnd;
+}
+
+
+
+void
+TcpD2TCP::CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBase> socket)
+{
+  if (ev == TcpCongestionOps::CA_EVENT_ECN_IS_CE && m_isCE == false) // No CE -> CE
+  {
+    NS_LOG_LOGIC (this << Simulator::Now () << " No CE -> CE ");
+    // Note, since the event occurs before writing the data into the buffer,
+    // the AckNumber would be the old one, which satisfies our state machine
+    if (m_hasDelayedACK)
+    {
+      NS_LOG_DEBUG ("Delayed ACK exists, sending ACK");
+      SendEmptyPacket(socket, TcpHeader::ACK);
+    }
+    tcb->m_demandCWR = true;
+    m_isCE = true;
+  }
+  else if (ev == TcpCongestionOps::CA_EVENT_ECN_NO_CE && m_isCE == true) // CE -> No CE
+  {
+    NS_LOG_LOGIC (this << " CE -> No CE ");
+    if (m_hasDelayedACK)
+    {
+      NS_LOG_DEBUG ("Delayed ACK exists, sending ACK | ECE");
+      SendEmptyPacket(socket, TcpHeader::ACK | TcpHeader::ECE);
+    }
+    tcb->m_demandCWR = false;
+    m_isCE = false;
+  }
+  else if (ev == TcpCongestionOps::CA_EVENT_DELAY_ACK_RESERVED)
+  {
+    m_hasDelayedACK = true;
+    NS_LOG_LOGIC (this << " Reserve deplay ACK ");
+  }
+  else if (ev == TcpCongestionOps::CA_EVENT_DELAY_ACK_NO_RESERVED)
+  {
+    m_hasDelayedACK = false;
+    NS_LOG_LOGIC (this << " Cancel deplay ACK ");
+  }
 }
 
 Ptr<TcpCongestionOps>
-TcpNewReno::Fork ()
+TcpD2TCP::Fork ()
 {
-  return CopyObject<TcpNewReno> (this);
+  return CopyObject<TcpD2TCP> (this);
+}
+
+void
+TcpD2TCP::UpdateTimeToAcheive (double windowSize, double remainingBytes)
+{
+  m_timeToAchieve = remainingBytes / (3 / 4 * windowSize);
+}
+void
+D2TCP::UpdateDeadlineImminence ()
+{
+  // windowSize = 
+  // remainingBytes
+  UpdateTimeToAcheive (windowSize, remainingBytes);
+  // m_timeRemain = 
+  m_deadlineImminence = m_timeToAchieve / m_timeRemain;
+}
+
+void
+D2TCP::UpdateAlpha ()
+{
+  if (m_bytesAcked == 0)
+    {
+      m_ceFraction = 0.0;
+    }
+  else
+    {
+      m_ceFraction = static_cast<double>(m_ecnBytesAcked) / static_cast<double>(m_bytesAcked);
+    }
+  m_alpha = (1 - m_g) * m_alpha + m_g * m_ceFraction;
+  Ns_LOG_LOGIC (this << Simulator::Now() << " alpha updated: " << m_alpha << 
+              " and ECN fraction: " << m_ceFraction <<
+              " bytes acked: " << m_bytesAcked <<
+              " ecn bytes acked: " << m_ecnBytesAcked);
+  // refresh
+  m_bytesAcked = 0;
+  m_ecnBytesAcked = 0;
+}
+
+void
+D2TCP::UpdatePenality ()
+{
+  m_penality = std::pow(m_alpha, m_deadlineImminence);
 }
 
 } // namespace ns3
