@@ -189,6 +189,7 @@ public:
 
 protected:
   virtual uint32_t SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
+  virtual void CongestionAvoidance (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
 };
 
 } // namespace ns3

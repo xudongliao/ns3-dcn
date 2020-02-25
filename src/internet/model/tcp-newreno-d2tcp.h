@@ -47,7 +47,7 @@ public:
   virtual void CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBase> socket);
   virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
                           const Time& rtt, bool withECE,
-                          SequenceNumber32 highTxMark, SequenceNumber32 ackNumber) { }
+                          SequenceNumber32 highTxMark, SequenceNumber32 ackNumber);
   virtual Ptr<TcpCongestionOps> Fork ();
 
   /**
@@ -60,12 +60,16 @@ public:
    * \brief calculate and set m_d
    * \return none
    */
-  void UpdateDeadlineImminence ();
+  void UpdateDeadlineImminence (double timeRemain);
 
   void UpdateAlpha ();
   void UpdatePenality ();
 
 protected:
+  bool m_isCE;
+  bool m_hasDelayedACK;
+  SequenceNumber32 m_highTxMark;
+
   double m_bytesAcked;
   double m_ecnBytesAcked;
 
@@ -78,6 +82,11 @@ protected:
 
   double m_timeToAchieve;    // T_c: the time needed for a flow to complete transmitting all its data under dealine-agnostic behavior
   double m_timeRemain;       // D: the time remaining until its deadline expires.
+
+  Time m_deadline;
+  Time m_deadlineTime;  // the real time need to finish the flow before
+  uint64_t          m_bytesToTx;
+  uint64_t          m_bytesHasSent;
 
 };
 

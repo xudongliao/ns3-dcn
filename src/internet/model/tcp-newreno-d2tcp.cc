@@ -19,6 +19,7 @@
 #include "tcp-newreno-d2tcp.h"
 #include "ns3/log.h"
 #include "ns3/simulator.h"
+#include "tcp-socket-base.h"
 #include <cmath>
 
 
@@ -34,10 +35,20 @@ TcpD2TCP::GetTypeId (void)
   static TypeId tid = TypeId ("ns3::TcpD2TCP")
     .SetParent<TcpNewReno> ()
     .SetGroupName ("Internet")
-    ;
+    .AddConstructor<TcpD2TCP> ()
+    .AddAttribute("g",
+                  "weight g in D2TCP similar to DCTCP",
+                  DoubleValue (1/16),
+                  MakeDoubleAccessor (&TcpD2TCP::m_g),
+                  MakeDoubleChecker<double> (0));
+  return tid;
 }
 
 TcpD2TCP::TcpD2TCP () :
+ TcpNewReno (),
+ m_isCE (false),
+ m_hasDelayedACK (false),
+ m_highTxMark (0),
  m_bytesAcked (0),
  m_ecnBytesAcked (0),
  m_alpha (0),
@@ -46,12 +57,20 @@ TcpD2TCP::TcpD2TCP () :
  m_deadlineImminence (0),
  m_penality (0),
  m_timeToAchieve (0),
- m_timeRemain (0)
+ m_timeRemain (0),
+ m_deadline (0),
+ m_deadlineTime (0),
+ m_bytesToTx (0),
+ m_bytesHasSent (0)
 {
   NS_LOG_FUNCTION (this);
 }
 
 TcpD2TCP::TcpD2TCP (const TcpD2TCP &sock) :
+ TcpNewReno (sock),
+ m_isCE (false),
+ m_hasDelayedACK (false),
+ m_highTxMark (sock.m_highTxMark),
  m_bytesAcked (sock.m_bytesAcked),
  m_ecnBytesAcked (sock.m_ecnBytesAcked),
  m_alpha (sock.m_alpha),
@@ -60,7 +79,11 @@ TcpD2TCP::TcpD2TCP (const TcpD2TCP &sock) :
  m_deadlineImminence (sock.m_deadlineImminence),
  m_penality (sock.m_penality),
  m_timeToAchieve (sock.m_timeToAchieve),
- m_timeRemain (sock.m_timeRemain)
+ m_timeRemain (sock.m_timeRemain),
+ m_deadline (sock.m_deadline),
+ m_deadlineTime (sock.m_deadlineTime),
+ m_bytesToTx (sock.m_bytesToTx),
+ m_bytesHasSent (sock.m_bytesHasSent)
 {
   NS_LOG_FUNCTION (this);
   NS_LOG_LOGIC ("Invoked the copy constructor");
@@ -83,10 +106,8 @@ TcpD2TCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
         const Time &rtt, bool withECE, SequenceNumber32 highTxMark, SequenceNumber32 ackNumber)
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt << withECE << highTxMark << ackNumber);
-  m_bytesAcked += segmentsAcked * tcb->m_segmentSize;
-
-  // socket modified
-  tcb->m_bytesHasSent += segmentAcked * tcb->m_segmentSize;
+  // m_bytesAcked += segmentsAcked * tcb->m_segmentSize;
+  m_bytesHasSent += segmentsAcked * tcb->m_segmentSize;
 
   if (withECE) {
     m_ecnBytesAcked += segmentsAcked * tcb->m_segmentSize;
@@ -95,8 +116,9 @@ TcpD2TCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
   {
     m_highTxMark = highTxMark;
     UpdateAlpha ();
-    UpdateTimeToAcheive (static_cast<double>(tcb->Window()), static_cast<double>(tcb->m_bytesToTx - tcb->m_bytesHasSent));
-    UpdateDeadlineImminence ();
+    UpdateTimeToAcheive (static_cast<double>(tcb->m_cWnd), static_cast<double>(m_bytesToTx - m_bytesHasSent));
+    UpdateDeadlineImminence ((m_deadlineTime - Simulator::Now ()).GetSeconds ());
+    NS_LOG_LOGIC (this << "deadline remain (s): " << m_timeRemain );
     UpdatePenality ();
   }
 }
@@ -137,7 +159,7 @@ TcpD2TCP::GetCwnd(Ptr<TcpSocketState> tcb) // TODO
   }
   else
   {
-    newCwnd = = static_cast<uint32_t>((1 - m_penality / 2) * tcb->m_cWnd );
+    newCwnd = static_cast<uint32_t>((1 - m_penality / 2) * tcb->m_cWnd );
   }
   NS_LOG_LOGIC (this << Simulator::Now() << "new cwnd: " << newCwnd );
   return newCwnd;
@@ -196,17 +218,17 @@ TcpD2TCP::UpdateTimeToAcheive (double windowSize, double remainingBytes)
   m_timeToAchieve = remainingBytes / (3 / 4 * windowSize);
 }
 void
-D2TCP::UpdateDeadlineImminence ()
+TcpD2TCP::UpdateDeadlineImminence (double timeRemain)
 {
-  // windowSize = 
+  // double windowSize = 
   // remainingBytes
-  UpdateTimeToAcheive (windowSize, remainingBytes);
-  // m_timeRemain = 
+  // UpdateTimeToAcheive (windowSize, remainingBytes);
+  m_timeRemain = timeRemain;
   m_deadlineImminence = m_timeToAchieve / m_timeRemain;
 }
 
 void
-D2TCP::UpdateAlpha ()
+TcpD2TCP::UpdateAlpha ()
 {
   if (m_bytesAcked == 0)
     {
@@ -217,17 +239,17 @@ D2TCP::UpdateAlpha ()
       m_ceFraction = static_cast<double>(m_ecnBytesAcked) / static_cast<double>(m_bytesAcked);
     }
   m_alpha = (1 - m_g) * m_alpha + m_g * m_ceFraction;
-  Ns_LOG_LOGIC (this << Simulator::Now() << " alpha updated: " << m_alpha << 
-              " and ECN fraction: " << m_ceFraction <<
-              " bytes acked: " << m_bytesAcked <<
-              " ecn bytes acked: " << m_ecnBytesAcked);
+  // Ns_LOG_LOGIC (this << Simulator::Now() << " alpha updated: " << m_alpha << 
+  //             " and ECN fraction: " << m_ceFraction <<
+  //             " bytes acked: " << m_bytesAcked <<
+  //             " ecn bytes acked: " << m_ecnBytesAcked);
   // refresh
   m_bytesAcked = 0;
   m_ecnBytesAcked = 0;
 }
 
 void
-D2TCP::UpdatePenality ()
+TcpD2TCP::UpdatePenality ()
 {
   m_penality = std::pow(m_alpha, m_deadlineImminence);
 }

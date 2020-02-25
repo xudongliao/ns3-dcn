@@ -556,12 +556,12 @@ Socket::GetDeadline (void) const
 }
 
 void
-Socket::SetDeadline (Time Deadline)
+Socket::SetBytesToTx (uint64_t bytes)
 {
 }
 
 uint64_t
-Socket::GetBtyesToTx (void) const
+Socket::GetBytesToTx (void) const
 {
   return 0;
 }

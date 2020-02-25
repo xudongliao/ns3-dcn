@@ -1042,6 +1042,22 @@ protected:
   bool                      m_isPause;
   uint32_t                  m_oldPath;
 
+  // Resequence buffer
+  Ptr<TcpPauseBuffer>       m_pauseBuffer;
+
+  // Transmission Control Block
+  Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
+  Ptr<TcpCongestionOps>  m_congestionControl; //!< Congestion control
+
+  // Guesses over the other connection end
+  bool m_isFirstPartialAck; //!< First partial ACK during RECOVERY
+
+   // The following two traces pass a packet with a TCP header
+  TracedCallback<Ptr<const Packet>, const TcpHeader&,
+                 Ptr<const TcpSocketBase> > m_txTrace; //!< Trace of transmitted packets
+
+  TracedCallback<Ptr<const Packet>, const TcpHeader&,
+                 Ptr<const TcpSocketBase> > m_rxTrace; //!< Trace of received packets
 
   // deadline-aware support
   // D2TCP support
@@ -1062,23 +1078,6 @@ protected:
   virtual uint64_t GetBytesHasSent (void) const;
 
 
-
-  // Resequence buffer
-  Ptr<TcpPauseBuffer>       m_pauseBuffer;
-
-  // Transmission Control Block
-  Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
-  Ptr<TcpCongestionOps>  m_congestionControl; //!< Congestion control
-
-  // Guesses over the other connection end
-  bool m_isFirstPartialAck; //!< First partial ACK during RECOVERY
-
-   // The following two traces pass a packet with a TCP header
-  TracedCallback<Ptr<const Packet>, const TcpHeader&,
-                 Ptr<const TcpSocketBase> > m_txTrace; //!< Trace of transmitted packets
-
-  TracedCallback<Ptr<const Packet>, const TcpHeader&,
-                 Ptr<const TcpSocketBase> > m_rxTrace; //!< Trace of received packets
 };
 
 /**

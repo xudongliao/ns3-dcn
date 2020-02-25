@@ -2655,7 +2655,7 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
   { 
     if (m_deadlineTime < Simulator::Now () &&  !(flags & (TcpHeader::RST | TcpHeader::FIN)))
     {
-      Doclose ();
+      DoClose ();
       return;
     }
     SocketDeadlineTag deadlineTag;
@@ -3071,7 +3071,7 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
       { 
         if (m_deadlineTime < Simulator::Now ())
         {
-          Doclose ();
+          DoClose ();
           return 0;
         }
         SocketDeadlineTag deadlineTag;
@@ -3326,7 +3326,7 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
   if (m_tcb->m_ecnConn && m_isDeadlineEnabled)
   {
     SocketDeadlineTag deadlineTag;
-    if (packet->RemovePacketTag(deadlineTag) && deadlineTag.GetDeadline () < Simulator::Now())
+    if (p->RemovePacketTag(deadlineTag) && deadlineTag.GetDeadline () < Simulator::Now())
     {
       NS_LOG_INFO ("Deadline is exceeded by " << (Simulator::Now() - deadlineTag.GetDeadline ()));
     }
@@ -4116,7 +4116,7 @@ TcpSocketBase::SetBytesToTx (uint64_t bytes)
 }
 
 uint64_t
-GetBytesToTx (void)
+TcpSocketBase::GetBytesToTx (void) const
 {
   return m_bytesToTx;
 }
@@ -4128,7 +4128,7 @@ TcpSocketBase::SetBytesHasSent (uint64_t bytes)
 }
 
 uint64_t
-GetBytesHasSent (void)
+TcpSocketBase::GetBytesHasSent (void) const
 {
   return m_bytesHasSent;
 }
