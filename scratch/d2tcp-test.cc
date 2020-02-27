@@ -1,7 +1,5 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2007 INRIA
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation;
@@ -15,79 +13,112 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Author: Mathieu Lacage <mathieu.lacage@cutebugs.net>
  */
-
-#include <iostream>
 
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
+#include "ns3/netanim-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/point-to-point-module.h"
+#include "ns3/applications-module.h"
+#include "ns3/point-to-point-layout-module.h"
+
+// Network topology (default)
+//
+//        n2 n3 n4              .
+//         \ | /                .
+//          \|/                 .
+//     n1--- n0---n5            .
+//          /|\                 .
+//         / | \                .
+//        n8 n7 n6              .
+//
+
 
 using namespace ns3;
 
-static void
-GenerateTraffic (Ptr<Socket> socket, uint32_t size)
-{
-  std::cout << "at=" << Simulator::Now ().GetSeconds () << "s, tx bytes=" << size << std::endl;
-  socket->Send (Create<Packet> (size));
-  if (size > 0)
-    {
-      Simulator::Schedule (Seconds (0.5), &GenerateTraffic, socket, size - 50);
-    }
-  else
-    {
-      socket->Close ();
-    }
-}
+NS_LOG_COMPONENT_DEFINE ("Star");
 
-static void
-SocketPrinter (Ptr<Socket> socket)
+int 
+main (int argc, char *argv[])
 {
-  Ptr<Packet> packet;
-  while ((packet = socket->Recv ()))
-    { 
-      std::cout << "at=" << Simulator::Now ().GetSeconds () << "s, rx bytes=" << packet->GetSize () << std::endl;
-    }
-}
+  LogComponentEnable("Star", LOG_LEVEL_ALL);
 
-static void
-PrintTraffic (Ptr<Socket> socket)
-{
-  socket->SetRecvCallback (MakeCallback (&SocketPrinter));
-}
+  //
+  // Set up some default values for the simulation.
+  //
+  Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (137));
 
-void
-RunSimulation (void)
-{
-  NodeContainer c;
-  c.Create (1);
+  // ??? try and stick 15kb/s into the data rate
+  Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("14kb/s"));
 
+  //
+  // Default number of nodes in the star.  Overridable by command line argument.
+  //
+  uint32_t nSpokes = 8;
+
+  CommandLine cmd;
+  cmd.AddValue ("nSpokes", "Number of nodes to place in the star", nSpokes);
+  cmd.Parse (argc, argv);
+
+  NS_LOG_INFO ("Build star topology.");
+  PointToPointHelper pointToPoint;
+  pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
+  pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+  PointToPointStarHelper star (nSpokes, pointToPoint);
+
+  NS_LOG_INFO ("Install internet stack on all nodes.");
   InternetStackHelper internet;
-  internet.Install (c);
+  star.InstallStack (internet);
 
+  NS_LOG_INFO ("Assign IP Addresses.");
+  star.AssignIpv4Addresses (Ipv4AddressHelper ("10.1.1.0", "255.255.255.0"));
 
-  TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-  Ptr<Socket> sink = Socket::CreateSocket (c.Get (0), tid);
-  InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (), 80);
-  sink->Bind (local);
+  NS_LOG_INFO ("Create applications.");
+  //
+  // Create a packet sink on the star "hub" to receive packets.
+  // 
+  uint16_t port = 50000;
+  Address hubLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), port));
+  PacketSinkHelper packetSinkHelper ("ns3::TcpSocketFactory", hubLocalAddress);
+  ApplicationContainer hubApp = packetSinkHelper.Install (star.GetHub ());
+  hubApp.Start (Seconds (1.0));
+  hubApp.Stop (Seconds (10.0));
 
-  Ptr<Socket> source = Socket::CreateSocket (c.Get (0), tid);
-  InetSocketAddress remote = InetSocketAddress (Ipv4Address::GetLoopback (), 80);
-  source->Connect (remote);
+  //
+  // Create OnOff applications to send TCP to the hub, one on each spoke node.
+  //
+  OnOffHelper onOffHelper ("ns3::TcpSocketFactory", Address ());
+  onOffHelper.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+  onOffHelper.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
 
-  GenerateTraffic (source, 500);
-  PrintTraffic (sink);
+  ApplicationContainer spokeApps;
 
+  for (uint32_t i = 0; i < star.SpokeCount (); ++i)
+    {
+      AddressValue remoteAddress (InetSocketAddress (star.GetHubIpv4Address (i), port));
+      onOffHelper.SetAttribute ("Remote", remoteAddress);
+      spokeApps.Add (onOffHelper.Install (star.GetSpokeNode (i)));
+    }
+  spokeApps.Start (Seconds (1.0));
+  spokeApps.Stop (Seconds (10.0));
 
+  NS_LOG_INFO ("Enable static global routing.");
+  //
+  // Turn on global static routing so we can actually be routed across the star.
+  //
+  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+
+  NS_LOG_INFO ("Enable pcap tracing.");
+  //
+  // Do pcap tracing on all point-to-point devices on all nodes.
+  //
+  pointToPoint.EnablePcapAll ("star");
+
+  NS_LOG_INFO ("Run Simulation.");
   Simulator::Run ();
-
   Simulator::Destroy ();
-}
-
-int main (int argc, char *argv[])
-{
-  RunSimulation ();
+  NS_LOG_INFO ("Done.");
 
   return 0;
 }
