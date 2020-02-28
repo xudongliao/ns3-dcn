@@ -22,6 +22,8 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/point-to-point-layout-module.h"
+#include "ns3/nstime.h"
+#include "ns3/flow-monitor-helper.h"
 
 // Network topology (default)
 //
@@ -43,6 +45,9 @@ int
 main (int argc, char *argv[])
 {
   LogComponentEnable("Star", LOG_LEVEL_ALL);
+  LogComponentDisable ("Socket", LOG_LEVEL_ALL);
+  LogComponentEnable("FlowMonitor", LOG_LEVEL_ALL);
+  // LogComponentEnableAll (LOG_FUNCTION);
 
   //
   // Set up some default values for the simulation.
@@ -52,13 +57,18 @@ main (int argc, char *argv[])
   // ??? try and stick 15kb/s into the data rate
   Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("14kb/s"));
 
+  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpNewReno"));
+
   //
   // Default number of nodes in the star.  Overridable by command line argument.
   //
-  uint32_t nSpokes = 8;
+  // uint32_t nSpokes = 8;
+  uint32_t nSpokes = 1;
+  bool enableFlowMonitor = false;
 
   CommandLine cmd;
   cmd.AddValue ("nSpokes", "Number of nodes to place in the star", nSpokes);
+  cmd.AddValue ("flow_monitor", "Enable flow monitor, default: false", enableFlowMonitor);
   cmd.Parse (argc, argv);
 
   NS_LOG_INFO ("Build star topology.");
@@ -98,8 +108,11 @@ main (int argc, char *argv[])
     {
       AddressValue remoteAddress (InetSocketAddress (star.GetHubIpv4Address (i), port));
       onOffHelper.SetAttribute ("Remote", remoteAddress);
+      onOffHelper.SetAttribute ("MaxBytes", UintegerValue(1e6));
+      onOffHelper.SetAttribute ("Deadline", TimeValue(Time("10ms")));
       spokeApps.Add (onOffHelper.Install (star.GetSpokeNode (i)));
     }
+  
   spokeApps.Start (Seconds (1.0));
   spokeApps.Stop (Seconds (10.0));
 
@@ -115,8 +128,25 @@ main (int argc, char *argv[])
   //
   pointToPoint.EnablePcapAll ("star");
 
-  NS_LOG_INFO ("Run Simulation.");
+  NS_LOG_INFO ("Enable flow monitor.");
+
+	FlowMonitorHelper flowHelper;
+	// flowMonitor = flowHelper.InstallAll();
+
+  if (enableFlowMonitor)
+    {
+      flowHelper.InstallAll ();
+      NS_LOG_INFO ("Run Simulation.");
+    }
+  Simulator::Stop (Seconds (11.0));
   Simulator::Run ();
+
+  if (enableFlowMonitor)
+    {
+      flowHelper.SerializeToXmlFile ("trace_tmprm.xml", true, true);
+      NS_LOG_INFO ("Generate trace in trace_tmprm.xml.");
+    }
+  
   Simulator::Destroy ();
   NS_LOG_INFO ("Done.");
 

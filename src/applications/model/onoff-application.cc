@@ -87,7 +87,8 @@ OnOffApplication::GetTypeId (void)
                    MakeTypeIdAccessor (&OnOffApplication::m_tid),
                    MakeTypeIdChecker ())
     .AddAttribute ("Deadline", "The time that the application requires flows to be completed within, "
-                   "0 means no deadline", TimeValue(Time(0)), 
+                   "0 means no deadline", 
+                   TimeValue(Time(0)), 
                    MakeTimeAccessor(&OnOffApplication::m_deadline),
                    MakeTimeChecker())
     .AddTraceSource ("Tx", "A new packet is created and is sent",
