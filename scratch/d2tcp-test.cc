@@ -41,12 +41,17 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("Star");
 
+void ShowProgress()
+{
+  std::cout << "current simulation time: " << Simulator::Now().GetSeconds () << " s" << std::endl;
+}
+
 int 
 main (int argc, char *argv[])
 {
   LogComponentEnable("Star", LOG_LEVEL_ALL);
   LogComponentDisable ("Socket", LOG_LEVEL_ALL);
-  LogComponentEnable("FlowMonitor", LOG_LEVEL_ALL);
+  LogComponentDisable("FlowMonitor", LOG_LEVEL_ALL);
   // LogComponentEnableAll (LOG_FUNCTION);
 
   //
@@ -55,9 +60,13 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (137));
 
   // ??? try and stick 15kb/s into the data rate
-  Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("14kb/s"));
+  Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("1Mbps"));
+  Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (0));
+  // Config::SetDefault ("ns3::OnOffApplication::Deadline", TimeValue ( Time ("10ms")));
 
-  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpD2TCP"));
+  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpNewReno"));
+
+
 
   //
   // Default number of nodes in the star.  Overridable by command line argument.
@@ -73,8 +82,8 @@ main (int argc, char *argv[])
 
   NS_LOG_INFO ("Build star topology.");
   PointToPointHelper pointToPoint;
-  pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+  pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
+  pointToPoint.SetChannelAttribute ("Delay", StringValue ("200ms"));
   PointToPointStarHelper star (nSpokes, pointToPoint);
 
   NS_LOG_INFO ("Install internet stack on all nodes.");
@@ -98,6 +107,7 @@ main (int argc, char *argv[])
   //
   // Create OnOff applications to send TCP to the hub, one on each spoke node.
   //
+  
   OnOffHelper onOffHelper ("ns3::TcpSocketFactory", Address ());
   onOffHelper.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
   onOffHelper.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
@@ -108,10 +118,19 @@ main (int argc, char *argv[])
     {
       AddressValue remoteAddress (InetSocketAddress (star.GetHubIpv4Address (i), port));
       onOffHelper.SetAttribute ("Remote", remoteAddress);
-      onOffHelper.SetAttribute ("MaxBytes", UintegerValue(1e6));
-      onOffHelper.SetAttribute ("Deadline", TimeValue(Time("10ms")));
       spokeApps.Add (onOffHelper.Install (star.GetSpokeNode (i)));
     }
+  
+ /*
+  BulkSendHelper bulkSendHelper ("ns3::TcpSocketFactory", Address ());
+  ApplicationContainer spokeApps;
+  for (uint32_t i=0; i < star.SpokeCount (); ++i)
+    {
+      AddressValue remoteAddress (InetSocketAddress (star.GetHubIpv4Address (i), port));
+      bulkSendHelper.SetAttribute ("Remote", remoteAddress);
+      spokeApps.Add (bulkSendHelper.Install (star.GetSpokeNode (i)));
+    }
+  */
   
   spokeApps.Start (Seconds (1.0));
   spokeApps.Stop (Seconds (10.0));
@@ -122,11 +141,11 @@ main (int argc, char *argv[])
   //
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
-  NS_LOG_INFO ("Enable pcap tracing.");
+  // NS_LOG_INFO ("Enable pcap tracing.");
   //
   // Do pcap tracing on all point-to-point devices on all nodes.
   //
-  pointToPoint.EnablePcapAll ("star");
+  // pointToPoint.EnablePcapAll ("star");
 
   NS_LOG_INFO ("Enable flow monitor.");
 
@@ -139,6 +158,11 @@ main (int argc, char *argv[])
       NS_LOG_INFO ("Run Simulation.");
     }
   Simulator::Stop (Seconds (11.0));
+  for (uint32_t i = 0; i < 10; ++i)
+    {
+      Simulator::Schedule(Seconds(i), &ShowProgress);
+    }
+  
   Simulator::Run ();
 
   if (enableFlowMonitor)
