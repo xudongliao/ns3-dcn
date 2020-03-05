@@ -65,9 +65,9 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (137));
 
   // ??? try and stick 15kb/s into the data rate
-  Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("1Mbps"));
+  Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("2Mbps"));
   Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (1e7));
-  Config::SetDefault ("ns3::OnOffApplication::Deadline", TimeValue ( Time ("2s")));
+  Config::SetDefault ("ns3::OnOffApplication::Deadline", TimeValue ( Time ("10s")));
 
   // Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpD2TCP"));
   Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpNewReno"));
@@ -89,7 +89,7 @@ main (int argc, char *argv[])
   NS_LOG_INFO ("Build star topology.");
   PointToPointHelper pointToPoint;
   pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+  pointToPoint.SetChannelAttribute ("Delay", StringValue ("200ms"));
   PointToPointStarHelper star (nSpokes, pointToPoint);
 
   NS_LOG_INFO ("Install internet stack on all nodes.");

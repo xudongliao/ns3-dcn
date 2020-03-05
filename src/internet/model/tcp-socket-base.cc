@@ -2666,7 +2666,7 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
     if (m_deadlineTime < Simulator::Now () &&  !(flags & (TcpHeader::RST | TcpHeader::FIN)))
     {
       DoClose ();
-      std::cout << "send empty pkts: passed deadline, deadlineTime: " << m_deadlineTime << " now: " << Simulator::Now() << std::endl;
+      // std::cout << "send empty pkts: passed deadline, deadlineTime: " << m_deadlineTime << " now: " << Simulator::Now() << std::endl;
       return;
     }
     SocketDeadlineTag deadlineTag;
@@ -2955,7 +2955,7 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
     if (m_deadlineTime < Simulator::Now ())
     {
       DoClose ();
-      std::cout << " passed deadline, deadlineTime: " << m_deadlineTime << " now: " << Simulator::Now() << std::endl;
+      // std::cout << " passed deadline, deadlineTime: " << m_deadlineTime << " now: " << Simulator::Now() << std::endl;
       return 0;
     }
     SocketDeadlineTag deadlineTag;
@@ -3339,11 +3339,13 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
   }
 
   // XXX deadline-aware
+  // in ReceiveData ()
   if (m_tcb->m_ecnConn && m_isDeadlineEnabled)
   {
     SocketDeadlineTag deadlineTag;
     if (p->RemovePacketTag(deadlineTag) && deadlineTag.GetDeadline () < Simulator::Now())
     {
+      // std::cout << "Deadline is exceeded by " << (Simulator::Now() - deadlineTag.GetDeadline ()) << std::endl;
       NS_LOG_INFO ("Deadline is exceeded by " << (Simulator::Now() - deadlineTag.GetDeadline ()));
     }
     // std::cout<< "Remove deadline tag, deadlineTag.GetDeadline (): " << deadlineTag.GetDeadline () << std::endl;
