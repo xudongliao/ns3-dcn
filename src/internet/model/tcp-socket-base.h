@@ -180,6 +180,12 @@ public:
   {
     return m_cWnd / m_segmentSize;
   }
+
+  // deadline support
+  // in class socket state
+  Time m_deadlineTime;  // The time this flow should be finished before
+  uint64_t m_bytesToTx;
+
 };
 
 /**
@@ -1061,6 +1067,7 @@ protected:
 
   // deadline-aware support
   // D2TCP support
+  // in class tcpsocketbase
   /**
    * inheritted from /network/model/socket, for deadline-aware machanism
    */

@@ -54,6 +54,7 @@ main (int argc, char *argv[])
   // LogComponentDisable("FlowMonitor", LOG_LEVEL_ALL);
   // LogComponentEnableAll (LOG_FUNCTION);
   // LogComponentEnable("TcpD2TCP", LOG_LEVEL_FUNCTION);
+  // LogComponentEnable("TcpD2TCP", LOG_LEVEL_DEBUG);
   // LogComponentEnable("TcpCongestionOps", LOG_LEVEL_FUNCTION);
   // LogComponentEnable("TcpCongestionOps", LOG_LEVEL_DEBUG);
   // LogComponentEnable("TcpSocketBase", LOG_LEVEL_INFO);
@@ -66,11 +67,11 @@ main (int argc, char *argv[])
 
   // ??? try and stick 15kb/s into the data rate
   Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("2Mbps"));
-  Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (1e7));
+  Config::SetDefault ("ns3::OnOffApplication::MaxBytes", UintegerValue (1e5));
   Config::SetDefault ("ns3::OnOffApplication::Deadline", TimeValue ( Time ("10s")));
 
-  // Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpD2TCP"));
-  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpNewReno"));
+  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpD2TCP"));
+  // Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue ("ns3::TcpNewReno"));
   Config::SetDefault ("ns3::TcpSocketBase::EnableDeadline", BooleanValue (true));
 
 
@@ -89,7 +90,7 @@ main (int argc, char *argv[])
   NS_LOG_INFO ("Build star topology.");
   PointToPointHelper pointToPoint;
   pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("200ms"));
+  pointToPoint.SetChannelAttribute ("Delay", StringValue ("50ms"));
   PointToPointStarHelper star (nSpokes, pointToPoint);
 
   NS_LOG_INFO ("Install internet stack on all nodes.");

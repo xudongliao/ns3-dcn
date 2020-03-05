@@ -105,8 +105,9 @@ void
 TcpD2TCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
         const Time &rtt, bool withECE, SequenceNumber32 highTxMark, SequenceNumber32 ackNumber)
 {
+  NS_LOG_DEBUG ("Enter PktsAcked");
   NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt << withECE << highTxMark << ackNumber);
-  // m_bytesAcked += segmentsAcked * tcb->m_segmentSize;
+  m_bytesAcked += segmentsAcked * tcb->m_segmentSize;
   m_bytesHasSent += segmentsAcked * tcb->m_segmentSize;
 
   if (withECE) {
@@ -115,11 +116,14 @@ TcpD2TCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
   if (ackNumber >= m_highTxMark)
   {
     m_highTxMark = highTxMark;
+    m_deadlineTime = tcb->m_deadlineTime;
+    m_bytesToTx = tcb->m_bytesToTx;
     UpdateAlpha ();
     UpdateTimeToAcheive (static_cast<double>(tcb->m_cWnd), static_cast<double>(m_bytesToTx - m_bytesHasSent));
     UpdateDeadlineImminence ((m_deadlineTime - Simulator::Now ()).GetSeconds ());
     NS_LOG_LOGIC (this << "deadline remain (s): " << m_timeRemain );
     UpdatePenality ();
+    NS_LOG_INFO ("m_alpha: " << m_alpha << " m_penality: " << m_penality << " m_timeToAchieve: " << m_timeToAchieve << " m_timeRemain:" << m_timeRemain);
   }
 }
 
@@ -128,6 +132,7 @@ void
 TcpD2TCP::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
     // In CA_CWR, the D2TCP keeps the windows size like DCTCP
+  NS_LOG_DEBUG ("Enter IncreaseWindow ()");
   if (tcb->m_congState != TcpSocketState::CA_CWR)
   {
     TcpNewReno::IncreaseWindow(tcb, segmentsAcked);
@@ -137,6 +142,7 @@ TcpD2TCP::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 uint32_t
 TcpD2TCP::GetSsThresh (Ptr<TcpSocketState> tcb, uint32_t bytesInFlight) // TODO
 {
+  NS_LOG_DEBUG ("Enter GetSsThresh, where really calculate SsTresh");
   NS_LOG_FUNCTION (this << tcb << bytesInFlight);
   if (tcb->m_congState == TcpSocketState::CA_RECOVERY)
   {
@@ -151,10 +157,11 @@ uint32_t
 TcpD2TCP::GetCwnd(Ptr<TcpSocketState> tcb) // TODO
 {
   NS_LOG_FUNCTION (this << tcb);
-  
+  NS_LOG_DEBUG ("Enter GetCwnd, where really use new cwnd");
   uint32_t newCwnd;
   if (m_penality)
   {
+    NS_LOG_DEBUG ("D2TCP, GetCwnd, should not enter here, warning!");
     newCwnd = static_cast<uint32_t>(tcb->m_cWnd + tcb->m_segmentSize);
   }
   else
@@ -215,7 +222,7 @@ TcpD2TCP::Fork ()
 void
 TcpD2TCP::UpdateTimeToAcheive (double windowSize, double remainingBytes)
 {
-  m_timeToAchieve = remainingBytes / (3 / 4 * windowSize);
+  m_timeToAchieve = static_cast<double>(remainingBytes) / static_cast<double>(3.0 / 4 * windowSize);
 }
 void
 TcpD2TCP::UpdateDeadlineImminence (double timeRemain)
@@ -237,8 +244,11 @@ TcpD2TCP::UpdateAlpha ()
   else
     {
       m_ceFraction = static_cast<double>(m_ecnBytesAcked) / static_cast<double>(m_bytesAcked);
+      NS_LOG_INFO ("m_ecnBytesAcked: " << m_ecnBytesAcked << "  m_ceFraction: " << m_ceFraction);
     }
   m_alpha = (1 - m_g) * m_alpha + m_g * m_ceFraction;
+  // Ns_LOG_DEBUG ("m_ceFraction: " << m_ceFraction << " m_g: " << m_g);
+  // NS_LOG_DEBUG ("m_ceFraction: " << m_ceFraction);
   // Ns_LOG_LOGIC (this << Simulator::Now() << " alpha updated: " << m_alpha << 
   //             " and ECN fraction: " << m_ceFraction <<
   //             " bytes acked: " << m_bytesAcked <<

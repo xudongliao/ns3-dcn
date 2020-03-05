@@ -275,7 +275,9 @@ TcpSocketState::TcpSocketState (void)
     m_demandCWR(false),
     m_queueCWR(false),
     m_CWRSentSeq(0),
-    m_congState (CA_OPEN)
+    m_congState (CA_OPEN),
+    m_deadlineTime (Time(0)),
+    m_bytesToTx(0)
 {
 }
 
@@ -291,7 +293,9 @@ TcpSocketState::TcpSocketState (const TcpSocketState &other)
     m_demandCWR(other.m_demandCWR),
     m_queueCWR(other.m_queueCWR),
     m_CWRSentSeq(0),
-    m_congState (other.m_congState)
+    m_congState (other.m_congState),
+    m_deadlineTime (other.m_deadlineTime),
+    m_bytesToTx (other.m_bytesToTx)
 {
 }
 
@@ -2951,6 +2955,8 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
   // In SendDataPackets()
   if (m_tcb->m_ecnConn && m_isDeadlineEnabled && m_deadline != Time (0))
   { 
+    m_tcb->m_deadlineTime = m_deadlineTime;
+    // std::cout<< "set deadline time in socket state, time: " << m_deadlineTime << std::endl;
     // std::cout << "deadlineTime: " << m_deadlineTime << "   Now(): " << Simulator::Now() << std::endl;
     if (m_deadlineTime < Simulator::Now ())
     {
@@ -4136,6 +4142,7 @@ void
 TcpSocketBase::SetBytesToTx (uint64_t bytes)
 {
   m_bytesToTx = bytes;
+  m_tcb->m_bytesToTx = bytes;
 }
 
 uint64_t
