@@ -167,6 +167,12 @@ TcpSocketBase::GetTypeId (void)
                    PointerValue (),
                    MakePointerAccessor (&TcpSocketBase::GetResequenceBuffer),
                    MakePointerChecker<TcpResequenceBuffer> ())
+
+    .AddAttribute ("EnableDeadline", "Whether enable deadline machanism",
+                    BooleanValue (false),
+                    MakeBooleanAccessor (&TcpSocketBase::m_isDeadlineEnabled),
+                    MakeBooleanChecker ())
+
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -825,9 +831,11 @@ TcpSocketBase::Connect (const Address & address)
   m_dataRetrCount = m_dataRetries;
 
   // deadline-machanism
+  // in TcpSocketBase::connect ()
   if (m_deadline != Time (0))
     {
       m_deadlineTime = m_deadline + Simulator::Now();
+      // std::cout << "socket connet, set m_deadlineTime = " << m_deadlineTime << std::endl; 
     }
   else
     {
@@ -2651,18 +2659,20 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
   }
 
   // deadline support
+  // in send empty packets ()
   if (m_tcb->m_ecnConn && m_isDeadlineEnabled && m_deadline != Time (0))
   { 
+    // std::cout << "m_deadlineTime: " << m_deadlineTime << " now: " << Simulator::Now() << std::endl;
     if (m_deadlineTime < Simulator::Now () &&  !(flags & (TcpHeader::RST | TcpHeader::FIN)))
     {
       DoClose ();
+      std::cout << "send empty pkts: passed deadline, deadlineTime: " << m_deadlineTime << " now: " << Simulator::Now() << std::endl;
       return;
     }
     SocketDeadlineTag deadlineTag;
     deadlineTag.SetDeadline (m_deadlineTime);
     p->AddPacketTag (deadlineTag);
   }
-
 
   m_txTrace (p, header, this);
 
@@ -2882,7 +2892,7 @@ uint32_t
 TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool withAck)
 {
   NS_LOG_FUNCTION (this << seq << maxSize << withAck);
-
+  // std::cout << "check point 3" << std::endl;
   bool isRetransmission = false;
   if (seq != m_highTxMark)
     {
@@ -2935,6 +2945,25 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
       ipHopLimitTag.SetHopLimit (GetIpv6HopLimit ());
       p->AddPacketTag (ipHopLimitTag);
     }
+
+  // std::cout << "check point 0.1" << "  deadline: " << m_deadline.GetSeconds () << std::endl;
+  // deadline support
+  // In SendDataPackets()
+  if (m_tcb->m_ecnConn && m_isDeadlineEnabled && m_deadline != Time (0))
+  { 
+    // std::cout << "deadlineTime: " << m_deadlineTime << "   Now(): " << Simulator::Now() << std::endl;
+    if (m_deadlineTime < Simulator::Now ())
+    {
+      DoClose ();
+      std::cout << " passed deadline, deadlineTime: " << m_deadlineTime << " now: " << Simulator::Now() << std::endl;
+      return 0;
+    }
+    SocketDeadlineTag deadlineTag;
+    deadlineTag.SetDeadline (m_deadlineTime);
+    p->AddPacketTag (deadlineTag);
+    // std::cout << "check point 1" << std::endl;
+  }
+  // std::cout << "check point 2" << std::endl;
 
   // XXX If this data packet is not retransmission, set ECT
   if (m_tcb->m_ecnConn && !isRetransmission) {
@@ -3064,19 +3093,6 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
           tcpCloveTag.SetPath (path);
           p->AddPacketTag (tcpCloveTag);
         }
-      }
-
-      // deadline support
-      if (m_tcb->m_ecnConn && m_isDeadlineEnabled && m_deadline != Time (0))
-      { 
-        if (m_deadlineTime < Simulator::Now ())
-        {
-          DoClose ();
-          return 0;
-        }
-        SocketDeadlineTag deadlineTag;
-        deadlineTag.SetDeadline (m_deadlineTime);
-        p->AddPacketTag (deadlineTag);
       }
 
 
@@ -3330,7 +3346,12 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
     {
       NS_LOG_INFO ("Deadline is exceeded by " << (Simulator::Now() - deadlineTag.GetDeadline ()));
     }
+    // std::cout<< "Remove deadline tag, deadlineTag.GetDeadline (): " << deadlineTag.GetDeadline () << std::endl;
   }
+
+  // std::cout << "m_ecnConn: " << m_tcb->m_ecnConn << " m_isDeadlineEnabled: " << m_isDeadlineEnabled << std::endl;
+  // 1, 1
+
 
   if (m_tcb->m_demandCWR)
   {

@@ -193,7 +193,7 @@ void
 TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
-
+  NS_LOG_DEBUG ("TcpNewReno::IncreaseWindow: m_ssThresh: " << tcb->m_ssThresh << "  m_cwnd: " << tcb->m_cWnd);
   if (tcb->m_cWnd < tcb->m_ssThresh)
     {
       segmentsAcked = SlowStart (tcb, segmentsAcked);
