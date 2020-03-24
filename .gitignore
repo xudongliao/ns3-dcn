@@ -18,6 +18,11 @@
 [D|U]l[A-Z][a-z]*Stats.txt
 seventh-packet-byte-count.png
 
+*.png
+*.pdf
+*.jpg
+*.eps
+
 \#*#
 ~*
 
@@ -35,3 +40,6 @@ TAGS
 
 build-dir/
 build/
+/.cproject
+/.project
+/.vscode
