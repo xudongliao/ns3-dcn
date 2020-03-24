@@ -1,317 +1,78 @@
-# ns3 Simulator for ECN#
+# ns3 Implementation for Data Center
 
-## Papers that use this simulator
+ns3-dcn is a project for implementing and evaluating data-center algorithms in ns-3. As a derivative of ns-3, it is free, licensed under the GNU GPLv2 license, and is publicly available for research, development, and use.
 
-[Enabling ECN for Datacenter Networks with RTT Variations (CoNEXT 19)](https://dl.acm.org/authorize.cfm?key=N690741)
+ns3-dcn aims to provide an unified and standard benchmark platform for data-center research. It encourages the community contribution, and recommend all DCN researchers chose it as the benchmark for simulation.
 
-[Resilient Datacenter Load Balancing in the Wild (SIGCOMM 17)](http://www.cse.ust.hk/~kaichen/papers/hermes-sigcomm17.pdf)
+#### Here is our project website [<u>ns3-dcn</u>](http://sing.cse.ust.hk/ns3-dcn)
 
-[PURR: a primitive for reconfigurable fast reroute: hope for the best and program for the worst (CoNEXT 19)](https://dl.acm.org/authorize?N690721)
+<font color=red><b>[Our project is still undergoing, currently we are refactoring our code to make it meet the standard] </b></font>
 
-Please cite either of the following papers if you are using our simulator. Thanks! :P
 
-```
-@inproceedings{zhang2017resilient,
-  title={Resilient datacenter load balancing in the wild},
-  author={Zhang, Hong and Zhang, Junxue and Bai, Wei and Chen, Kai and Chowdhury, Mosharaf},
-  booktitle={Proceedings of the Conference of the ACM Special Interest Group on Data Communication},
-  pages={253--266},
-  year={2017},
-  organization={ACM}
-}
+## Guideline for Users
+
+####Step1: build
+However, the real quick and dirty way to get started is to
+type the command
+```shell
+./waf configure --enable-examples
 ```
 
-```
-@inproceedings{zhang2019enabling,
-  title={Enabling ECN for datacenter networks with RTT variations},
-  author={Zhang, Junxue and Bai, Wei and Chen, Kai},
-  booktitle={Proceedings of the 15th International Conference on Emerging Networking Experiments And Technologies},
-  pages={233--245},
-  year={2019},
-  organization={ACM}
-}
+followed by
+
+```shell
+./waf
 ```
 
-## Download and Compile
+####Step2: run
+On recent Linux systems, once you have built ns-3 (with examples
+enabled), it should be easy to run the sample programs with the
+following command, such as:
 
-1. Ubuntu + gcc-4.9 has been verified to compatiable with the project.
-
-``` docker run -it gcc:4.9 ```
-
-2. Clone the project.
-
-``` git clone git@github.com:snowzjx/ns3-ecn-sharp.git ```
-
-3. Configuration.
-
-``` cd ns3-ecn-sharp ```
-
-``` ./waf -d optimized --enable-examples configure ```
-
-4. If you want to enable the debug mode for logging, can pass ```-d debug ``` to the configuration.
-
-``` ./waf -d debug --enable-examples configure ```
-
-5. Compile the simulator.
-
-``` ./waf ```
-
-## Docker Image
-
-You can also directly use our docker image for this simulator.
-
-``` docker run -it snowzjx/ns3-ecn-sharp:optimized ```
-
-``` cd ~/ns3-ecn-sharp ```
-
-## ECN# Implementation
-
-The ECN# (ECN Sharp)'s implementation is here:
-
-[https://github.com/snowzjx/ns3-ecn-sharp/blob/master/src/traffic-control/model/ecn-sharp-queue-disc.h](https://github.com/snowzjx/ns3-ecn-sharp/blob/master/src/traffic-control/model/ecn-sharp-queue-disc.h)
-
-[https://github.com/snowzjx/ns3-ecn-sharp/blob/master/src/traffic-control/model/ecn-sharp-queue-disc.cc](https://github.com/snowzjx/ns3-ecn-sharp/blob/master/src/traffic-control/model/ecn-sharp-queue-disc.cc)
-
-### Measuring the sojourn time
-
-The sojourn time is measured using ```ECNSharpTimestampTag```.
-
-When a packet enqueues, we add a timestamp tag on the packet.
-
+```shell
+./waf --run DCTCP
 ```
-ECNSharpTimestampTag tag;
-p->AddPacketTag (tag);
-GetInternalQueue (0)->Enqueue (item);
+or you can add some parameters.
+```shell
+./waf --run DCTCP --writeForPlot=1 --writePcap=1
 ```
 
-When a packet dequeues, we calculate the sojourn time by deducing enqueue timestamp from current timestamp.
+####Note:
+- You can find the example code in <code>./examples/dcn</code>, every algorithm has an independent directory. The available algorithms are listed below.
+- We offer an readme for each algorithm, in the readme, you can find <u>*where is the implementation code*</u> and <u>*how to use the code*</u>.
+- <font color=red>[IMPORTANT!]</font> While you are free to use the code[^1], you need to cite the related work in your paper[^2]. Since we want to bulid a community, this way can encourage the code contributors.
+[^1]: Here, directly use the code as the benchmark or implement you algorithm based on the code all means "use the code"
+[^2]: Here, “the related” is inheritable, for example, if you use the code of paper A, meanwhile paper A use the code of paper B, you need to cite both paper A and paper B. For your convience, we write a script in <code>./utils/dcn/gen_refence.sh</code>, you can generate all the referenced papers you need in one shot.
+## Guideline for Developers
 
-```
-Ptr<QueueDiscItem> item = StaticCast<QueueDiscItem> (GetInternalQueue (0)->Dequeue ());
-Ptr<Packet> p = item->GetPacket ();
-ECNSharpTimestampTag tag;
-bool found = p->RemovePacketTag (tag);
-if (!found)
-{
-  NS_LOG_ERROR ("Cannot find the ECNSharp Timestamp Tag");
-  return NULL;
-}
-Time sojournTime = now - tag.GetTxTime ();
-```
+ns3-dcn aims to be a community work, and we are unable to estiablish a comprehensive and high quality platform just by us. Therefore, we hope  everyone implement your algorithms by ns3 and join the platform. You paper can be easier to reproduce and used by other people. What's more, other people can implement their work with the code your provide, and your work can get more cites.
 
-### Instantaneous ECN Marking
+####How to submit my code？
+We heavily recommend you submit your code via Pull Request.
+We offer some example <font color=orange>[to do]</font>
+####Submission standard
+Unlike the ns3 main project, we do not request strict code format and the test module. Our goal is, both friendly to users and developers.
 
-```
-if (sojournTime > m_instantMarkingThreshold)
-{
-  instantaneousMarking = true;
-}
-```
+- **Standard for implementation code**
+  1. Name for algorithm: you need to name you algorithm first, e.g. dctcp and pfabric, please use lowercases and numbers. If name clashes happens, please add addition information, e.g. author name, public year.
+  2. Name for code file: when you write a model, please name it with your alg name and the function, for example, tcp-neno.cc -> tcp-dctcp.cc, red-queue-disc.cc -> dctcp-queue-disc.cc
+  3. Keep independence with other implementations: Even if one module of your algorithm is very similar with others, please add a new file with your alg name, e.g. if the switch impl in my alg(name myalg) just need modify serval lines of dctcp-queue-disc.cc, please copy from dctcp-queue-disc.cc and add a new file named myalg-queue-disc.cc. In one word, **Please add instead of modify**.
+  4. Whitelist of files that can be modified：In some cases, you have the modify the files, e,g, wscript, new packet tag class defined in socket.h. Here, we offer the whitelist in <code>./utils/dcn/whitelist.txt</code>
+- **Standard for example code and documents**
+  1. You need to create a new directory at <code>./example/dcn/</code>, named with your algorithm name.
+  2. Please create an example in your directory. You can use any code style and setting.
+  3. Please add an readme in your directory, which contains:1) source code location. 2) basic usage of you algorithm. 3) code refence: if your implementation is based on others' code, please write down the names.
 
-### Persistent ECN Marking
-```
-bool okToMark = OkToMark (p, sojournTime, now);
-if (m_marking)
-{
-  if (!okToMark)
-  {
-    m_marking = false;
-  }
-  else if (now >= m_markNext)
-  {
-    m_markCount ++;
-    m_markNext = now + ECNSharpQueueDisc::ControlLaw ();
-    persistentMarking = true;
-  }
-}
-else
-{
-  if (okToMark)
-  {
-    m_marking = true;
-    m_markCount = 1;
-    m_markNext = now + m_persistentMarkingInterval;
-    persistentMarking = true;
-   }
-}
-```
-
-### Mark ECN based on the above 2 conditions
-```
-if (instantaneousMarking || persistentMarking)
-{
-  if (!ECNSharpQueueDisc::MarkingECN (item))
-  {
-    NS_LOG_ERROR ("Cannot mark ECN");
-    return item; // Hey buddy, if the packet is not ECN supported, we should never drop it
-   }
-}
-```
-
-## Run Simulations
-Run ```large-scale``` program for this experiment:
-
-```
-./waf --run "large-scale --help"
-```
-
-Please note, the default simulation time is very short, you should tune the simulation time by setting the ```--EndTime``` and ```--FlowLaunchEndTime``` to obtain a similar results in our paper.
-
-In this program, TCN is identical to RED because here we only use one queue.
-
-You should run:
-```
-./waf --run "large-scale --randomSeed=233 --load=0.6 --ID=TCN_High --AQM=TCN --TCNThreshold=70"
-```
-```
-./waf --run "large-scale --randomSeed=233 --load=0.6 --ID=TCN_Low --AQM=TCN --TCNThreshold=30"
-```
-```
-./waf --run "large-scale --randomSeed=233 --load=0.6 --ID=ECNSharp --AQM=ECNSharp --ECNShaprInterval=70 --ECNSharpTarget=10 --ECNShaprMarkingThreshold=70"
-```
-
-to compare the ECN#, RED with marking threshold calculated based on tail RTT and average RTT.
-
-After simulation finishes, you will get a flow monitor file. The file is xml format and can be parsed by ```fct_parser.py``` script. Please note, our [flow monitor](https://github.com/snowzjx/ns3-ecn-sharp/blob/master/src/flow-monitor/model/flow-monitor.cc) is slight different from the original version (some bugs are fixed).
-
-```
-python examples/rtt-variations/fct_parser.py Large_Scale_TCN_High_4X4_TCN_DcTcp_0.6.xml
-```
-```
-python examples/rtt-variations/fct_parser.py Large_Scale_TCN_Low_4X4_TCN_DcTcp_0.6.xml
-```
-```
-python examples/rtt-variations/fct_parser.py Large_Scale_ECNSharp_4X4_ECNSharp_DcTcp_0.6.xml
-```
-
-You can obtain the results as follows. Here we give a sample with default parameters (short simulation time) only to demonstrate the trends.
-
-For ECN#:
-```
-...
-AVG FCT: 0.009724
-AVG Large flow FCT: 0.075342
-AVG Small flow FCT: 0.001556
-AVG Small flow 99 FCT: 0.008763
-...
-```
-
-For RED (TCN) with marking threshold calculated based on high percentile RTT:
-```
-...
-AVG FCT: 0.010133
-AVG Large flow FCT: 0.073115
-AVG Small flow FCT: 0.002375
-AVG Small flow 99 FCT: 0.009398
-...
-```
-
-For RED (TCN) with marking threshold calculated based on average RTT:
-```
-...
-AVG FCT: 0.009593
-AVG Large flow FCT: 0.081166
-AVG Small flow FCT: 0.001483
-AVG Small flow 99 FCT: 0.008892
-...
-```
-We can see RED suffers from either throughput loss (poor FCT for all flows and large flows) or increased latency (poor FCT and tail FCT for short flows).
-
-ECN# simultaneously deliver high throughput and low latency communications. 
-
-### Queue Track
-Run ```queue-track``` program for this experiment:
-
-```
-./waf --run "queue-track --help"
-```
-
-You can use GNU Plot to plot the queue.
-```
-gnuplot Queue_Track_ ... .plt
-```
-
-The results are as follows, we can see ECN# can at the same time mitigate the persistent queue buildups and tolerate traffic burstiness.
-
-![Queue Track](https://raw.githubusercontent.com/snowzjx/ns3-ecn-sharp/master/examples/rtt-variations/queue-track.png)
+- **Standard for validation**
+  <font color=orange>[to do]</font>
 
 
-### Multi-Queue
+## Contact us
 
-Run ```mq``` program for this experiment:
+1. email
+2. google group
 
-```
-./waf --run "mq --help"
-```
-
-Both TCN and ECN# will output the throughput of all 3 flows. The results should be similar as follows, which shows both strategy can preserve the packet sceduling policy.
-
-```
-...
-Flow: 0, throughput (Gbps): 9.57376
-Flow: 1, throughput (Gbps): 0
-Flow: 2, throughput (Gbps): 0
-...
-Flow: 0, throughput (Gbps): 6.55424
-Flow: 1, throughput (Gbps): 3.01392
-Flow: 2, throughput (Gbps): 0
-...
-Flow: 0, throughput (Gbps): 4.86864
-Flow: 1, throughput (Gbps): 2.42928
-Flow: 2, throughput (Gbps): 2.2372
-...
-```
-
-When we anaylzing FCT of all flows, we should obtain the following results. This shows ECN# has much better results for short flows by mitigating the unnecessary persistent queue buildups.
-
-For ECN#:
-
-```
-...
-AVG Small flow FCT: 0.001329
-AVG Small flow 99 FCT: 0.001694
-...
-```
-
-For TCN:
-
-```
-...
-AVG Small flow FCT: 0.002105
-AVG Small flow 99 FCT: 0.005068
-...
-```
-
-## Implemented Modules
-
-We have implemented the following transportation protocols, tc modules and load balance schemes in this simulator.
-
-### Transport Protocol
-
-1. [DCTCP](https://people.csail.mit.edu/alizadeh/papers/dctcp-sigcomm10.pdf)
-
-### Traffic Control Module
-
-1. ECN#
-2. RED
-3. [TCN](http://www.cse.ust.hk/~kaichen/papers/tcn-conext16.pdf)
-4. [CoDel(with ECN)](https://queue.acm.org/detail.cfm?id=2209336)
-5. DWRR
-6. WFQ
-
-### Load Balance Scheme
-
-1. [Hermes](http://www.cse.ust.hk/~kaichen/papers/hermes-sigcomm17.pdf)
-2. Per flow ECMP
-3. [CONGA](https://people.csail.mit.edu/alizadeh/papers/conga-sigcomm14.pdf)
-4. [DRB](http://conferences.sigcomm.org/co-next/2013/program/p49.pdf)
-5. [Presto](http://pages.cs.wisc.edu/~akella/papers/presto-sigcomm15.pdf)
-6. Weighted Presto, which has to be used together with asymmetric topology
-7. [FlowBender](http://conferences2.sigcomm.org/co-next/2014/CoNEXT_papers/p149.pdf) 
-8. [CLOVE](https://www.cs.princeton.edu/~jrex/papers/clove16.pdf)
-9. [DRILL](http://conferences.sigcomm.org/hotnets/2015/papers/ghorbani.pdf)
-10. [LetFlow](https://people.csail.mit.edu/alizadeh/papers/letflow-nsdi17.pdf)
-
-### Routing 
-
-1. [XPath](http://www.cse.ust.hk/~kaichen/papers/xpath-nsdi15.pdf)
+## Papers and Algorithms Included
+| Name | Paper | Come from | Public Year |
+| :-------------: | :-------------: | :-------------: | ------------- |
+| dctcp | Data Center TCP (DCTCP) | SIGCOMM | 2011 |
