@@ -11,7 +11,7 @@ ns3-dcn aims to provide an unified and standard benchmark platform for data-cent
 
 ## Guideline for Users
 
-####Step1: build
+#### Step1: build
 However, the real quick and dirty way to get started is to
 type the command
 ```shell
@@ -24,7 +24,7 @@ followed by
 ./waf
 ```
 
-####Step2: run
+#### Step2: run
 On recent Linux systems, once you have built ns-3 (with examples
 enabled), it should be easy to run the sample programs with the
 following command, such as:
@@ -37,7 +37,7 @@ or you can add some parameters.
 ./waf --run DCTCP --writeForPlot=1 --writePcap=1
 ```
 
-####Note:
+#### Note:
 - You can find the example code in <code>./examples/dcn</code>, every algorithm has an independent directory. The available algorithms are listed below.
 - We offer an readme for each algorithm, in the readme, you can find <u>*where is the implementation code*</u> and <u>*how to use the code*</u>.
 - <font color=red>[IMPORTANT!]</font> While you are free to use the code[^1], you need to cite the related work in your paper[^2]. Since we want to bulid a community, this way can encourage the code contributors.
@@ -47,7 +47,7 @@ or you can add some parameters.
 
 ns3-dcn aims to be a community work, and we are unable to estiablish a comprehensive and high quality platform just by us. Therefore, we hope  everyone implement your algorithms by ns3 and join the platform. You paper can be easier to reproduce and used by other people. What's more, other people can implement their work with the code your provide, and your work can get more cites.
 
-####How to submit my code？
+#### How to submit my code？
 We heavily recommend you submit your code via Pull Request.
 We offer some example <font color=orange>[to do]</font>
 ####Submission standard
