@@ -22,6 +22,7 @@
 #include "ns3/pointer.h"
 #include "ns3/object-factory.h"
 #include "ns3/socket.h"
+#include "ns3/ipv4-queue-disc-item.h"
 #include "prio-queue-disc.h"
 #include <algorithm>
 #include <iterator>
@@ -64,6 +65,14 @@ TypeId PrioQueueDisc::GetTypeId (void)
                    PriomapValue (Priomap{{1, 2, 2, 2, 1, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1}}),
                    MakePriomapAccessor (&PrioQueueDisc::m_prio2band),
                    MakePriomapChecker ())
+    .AddAttribute ("EcnMarkingScheme", "ECN Marking Scheme: per-port or per-queue",
+                   UintegerValue (0),
+                   MakeUintegerAccessor (&PrioQueueDisc::m_markingScheme),
+                   MakeUintegerChecker<uint32_t> ())
+    .AddAttribute ("EThreshold", "Single ECN marking threshold",
+                   UintegerValue (0),
+                   MakeUintegerAccessor (&PrioQueueDisc::m_thresh),
+                   MakeUintegerChecker<uint32_t> ())              
   ;
   return tid;
 }
@@ -127,10 +136,20 @@ PrioQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
           band = ret;
         }
     }
-
   NS_ASSERT_MSG (band < GetNQueueDiscClasses (), "Selected band out of range");
   bool retval = GetQueueDiscClass (band)->GetQueueDisc ()->Enqueue (item);
 
+  // whether the packet need to be marked
+  if ((m_markingScheme == PER_PORT and GetTotalPkts() > m_thresh) or 
+       (m_markingScheme == PER_QUEUE and GetQueueDiscClass(band)->GetQueueDisc()->GetNPackets() > m_thresh))
+    {
+      int ret = MarkingEcn(item);
+      if (ret  <= 0)
+        {
+          NS_LOG_ERROR ("Cannot Mark the packet");
+          return ret;
+        }
+    }
   // If Queue::Enqueue fails, QueueDisc::Drop is called by the child queue disc
   // because QueueDisc::AddQueueDiscClass sets the drop callback
 
@@ -219,6 +238,32 @@ void
 PrioQueueDisc::InitializeParams (void)
 {
   NS_LOG_FUNCTION (this);
+}
+
+bool
+PrioQueueDisc::MarkingEcn (Ptr<QueueDiscItem> item)
+{
+  NS_LOG_FUNCTION (this << item );
+  Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
+  if (ipv4Item == 0) 
+    {
+      NS_LOG_ERROR ("Cannot convert the queue disc item to ipv4 queue disc item");
+      return false;
+    }
+  ipv4Item->Mark(); // Mark ECN bit 
+  return true;
+}
+
+uint32_t 
+PrioQueueDisc::GetTotalPkts (void)
+{
+  NS_LOG_FUNCTION (this);
+  uint32_t nPkts = 0;
+  for (uint32_t i = 0; i < GetNQueueDiscClasses (); i++)
+    {
+      nPkts += GetQueueDiscClass(i) -> GetQueueDisc() -> GetNPackets();
+    }
+  return nPkts;
 }
 
 } // namespace ns3

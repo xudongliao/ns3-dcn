@@ -25,6 +25,12 @@
 #include <array>
 
 namespace ns3 {
+/**
+ * ECN Mark scheme
+ */
+#define DISABLE_ECN 0
+#define PER_QUEUE 1
+#define PER_PORT 2
 
 typedef std::array<uint16_t, 16> Priomap;
 
@@ -82,8 +88,13 @@ private:
   virtual Ptr<const QueueDiscItem> DoPeek (void);
   virtual bool CheckConfig (void);
   virtual void InitializeParams (void);
+  bool MarkingEcn (Ptr<QueueDiscItem> item);
+  uint32_t GetTotalPkts (void);
 
   Priomap m_prio2band;    //!< Priority to band mapping
+  // int m_meanPktSize;    //!< Configured mean packet size in bytes 
+  int m_thresh;    //!< Single ECN marking threshold
+  int m_markingScheme;    //!< ECN mark schemes: Disable ECN (0), Per-queue ECN (1), Per-port ECN (2)
 };
 
 /**
