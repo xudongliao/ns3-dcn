@@ -10,8 +10,7 @@
 #include "ns3/trace-source-accessor.h"
 #include "ns3/tcp-socket-factory.h"
 #include "pias-bulk-send-application.h"
-// #include <algorithm>
-// #include <iterator>
+#include <algorithm>
 
 namespace ns3{
 
@@ -52,7 +51,7 @@ PiasBulkSendApplication::GetTypeId (void)
                    "The number of PIAS priorities", 
                    UintegerValue(8),
                    MakeUintegerAccessor (&PiasBulkSendApplication::m_piasPrioNum),
-                   MakeUintegerChecker<uint8_t> (1))
+                   MakeUintegerChecker<uint16_t> (1))
     .AddAttribute ("PiasThresholds", "The PIAS threshold to assign priority.",
                    PiasThresholdValue (PiasThreshold{{750*MEAN_PACKET_SIZE, 
                    1132*MEAN_PACKET_SIZE, 1456*MEAN_PACKET_SIZE,
@@ -235,7 +234,7 @@ PiasBulkSendApplication::SendData (void)
       Ptr<Packet> packet = Create<Packet> (toSend);
       // Assign priority 
       SocketPriorityTag priorityTag;
-      priorityTag.SetPriority (PiasPriority ());
+      priorityTag.SetPriority (PiasPriority (m_totBytes));
       int actual = m_socket->Send (packet);
       if (actual > 0)
         {
@@ -288,12 +287,19 @@ PiasBulkSendApplication::DataSend (Ptr<Socket>, uint32_t)
 uint8_t 
 PiasBulkSendApplication::PiasPriority (uint64_t bytesSent)
 {
-  if (m_piasPrioNum != 2 or m_piasPrioNum != 4 or m_piasPrioNum != 8)
+  NS_LOG_FUNCTION (this << bytesSent);
+  if (m_piasPrioNum >= 1)
     {
-      NS_LOG_ERROR ("Wrong Priority numbers");
-      return 0;
+      uint16_t prioNum = std::min(m_piasPrioNum, (uint16_t)8);
+      for (uint8_t i = 0; i < prioNum - 1; i++)
+        {
+          if (bytesSent <= m_threshs[i])
+            return i;
+        }
+      return prioNum - 1;
     }
-
+  else
+      return 0;
 }
 
 void

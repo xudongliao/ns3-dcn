@@ -88,7 +88,7 @@ private:
   // Traced Callback: sent packets
   TracedCallback<Ptr<const Packet>> m_txTrace;
 
-  uint8_t m_piasPrioNum;     //!< number of PIAS priorities
+  uint16_t m_piasPrioNum;     //!< Number of PIAS priorities
   PiasThreshold m_threshs;   //!< PIAS priorities threshold
 
 private:
