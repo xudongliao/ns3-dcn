@@ -69,8 +69,8 @@ TypeId PrioQueueDisc::GetTypeId (void)
                    UintegerValue (0),
                    MakeUintegerAccessor (&PrioQueueDisc::m_markingScheme),
                    MakeUintegerChecker<uint32_t> ())
-    .AddAttribute ("EThreshold", "Single ECN marking threshold",
-                   UintegerValue (0),
+    .AddAttribute ("EcnThreshold", "Single ECN marking threshold in Packets",
+                   UintegerValue (50),
                    MakeUintegerAccessor (&PrioQueueDisc::m_thresh),
                    MakeUintegerChecker<uint32_t> ())              
   ;
@@ -244,14 +244,14 @@ bool
 PrioQueueDisc::MarkingEcn (Ptr<QueueDiscItem> item)
 {
   NS_LOG_FUNCTION (this << item );
-  Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
-  if (ipv4Item == 0) 
-    {
-      NS_LOG_ERROR ("Cannot convert the queue disc item to ipv4 queue disc item");
-      return false;
-    }
-  ipv4Item->Mark(); // Mark ECN bit 
-  return true;
+  // Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
+  // if (ipv4Item == 0) 
+  //   {
+  //     NS_LOG_ERROR ("Cannot convert the queue disc item to ipv4 queue disc item");
+  //     return false;
+  //   }
+  // ipv4Item->Mark(); // Mark ECN bit 
+  return Mark(item, "Exceeding ECN threshold");
 }
 
 uint32_t 

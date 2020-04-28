@@ -28,9 +28,9 @@ namespace ns3 {
 /**
  * ECN Mark scheme
  */
-#define DISABLE_ECN 0
-#define PER_QUEUE 1
-#define PER_PORT 2
+// #define DISABLE_ECN 0
+// #define PER_QUEUE 1
+// #define PER_PORT 2
 
 typedef std::array<uint16_t, 16> Priomap;
 
@@ -82,6 +82,11 @@ public:
    */
   uint16_t GetBandForPriority (uint8_t prio) const;
 
+  enum {
+    DISABLE_ECN,
+    PER_QUEUE,
+    PER_PORT,
+  };
 private:
   virtual bool DoEnqueue (Ptr<QueueDiscItem> item);
   virtual Ptr<QueueDiscItem> DoDequeue (void);
