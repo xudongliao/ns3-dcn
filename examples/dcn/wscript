@@ -2,5 +2,5 @@
 
 def build(bld):
     obj = bld.create_ns3_program('pias',
-                                 ['point-to-point', 'applications', 'internet', 'flow-monitor', 'link-monitor', 'traffic-control'])
-    obj.source = ['pias/pias.cc']
+                                 ['point-to-point', 'applications', 'internet', 'flow-monitor', 'traffic-control'])
+    obj.source = 'pias/pias.cc'

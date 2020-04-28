@@ -73,7 +73,7 @@ PiasBulkSendApplication::GetTypeId (void)
                    "Once these bytes are sent, "
                    "no data  is sent again. The value zero means "
                    "that there is no limit.",
-                   UintegerValue (0),
+                   UintegerValue (1000),
                    MakeUintegerAccessor (&PiasBulkSendApplication::m_maxBytes),
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("DelayThresh",

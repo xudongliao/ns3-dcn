@@ -11,7 +11,7 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("SpineLeafAnimation");
+NS_LOG_COMPONENT_DEFINE ("PiasExample");
 
 uint32_t numSpine = 4;	
 uint32_t numLeaf = 9;
@@ -19,9 +19,12 @@ uint32_t numServerPerLeaf = 16;
 uint64_t leafSpineSpeed = 40000000000;
 uint64_t leafServerSpeed = 10000000000;
 int      overSubRatio = 1;
+int minRto = 5;
 int baseRttUs = 25;
 int packetSize = 1400; //!< in bytes  
 int bufferSize = 4 * leafServerSpeed * baseRttUs * 1e-6 / packetSize / 8; //!< in packets 
+const int PORT_START = 10000;
+const int PORT_END = 50000;
 
 // Leaf-spine Path Count 
 int pathLeafSpine = numServerPerLeaf / overSubRatio / numSpine;
@@ -57,7 +60,6 @@ ConfigTopology(NodeContainer& spines, NodeContainer& leaves,
     {
       tc.AddChildQueueDisc (handle, cid[i], "ns3::FifoQueueDisc");
     }
-  Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (0)); // disable dupack (the default setting in pfabric)
   NS_LOG_INFO ("Configuring servers");
   p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (leafServerSpeed)));
   p2p.SetChannelAttribute ("Delay", TimeValue(MicroSeconds(1)));
@@ -107,8 +109,85 @@ void ConfigNetwork(std::vector<Ipv4Address>& leafNetworks,
               }
           }
     }
+}
+
+template<typename T>
+T rand_range (T min, T max)
+{
+  return min + ((double)max - min) * rand () / RAND_MAX;
+}
+
+void InstallTcpApplication(NodeContainer servers, int senderIndex, int receiverIndex, int flowid)
+{
+  // int tcpFlowSize = 100;
+
+  Ptr<Node> destServer = servers.Get (receiverIndex);
+  Ptr<Ipv4> ipv4 = destServer -> GetObject<Ipv4> ();
+  Ipv4InterfaceAddress destInterface = ipv4 -> GetAddress (1,0);
+  Ipv4Address destAddress = destInterface.GetLocal();
+
+  uint16_t port = rand_range(PORT_START, PORT_END);
+  PiasBulkSendHelper source ("ns3::TcpSocketFactory",
+                         InetSocketAddress (destAddress, port));
+
+  source.SetAttribute ("SendSize", UintegerValue (packetSize));
+  source.SetAttribute ("MaxBytes", StringValue ("100KB"));
+  // source.SetAttribute ("FlowId", UintegerValue (flowid));
+
+
+  ApplicationContainer sourceApp = source.Install (servers.Get (senderIndex));
+  sourceApp.Start (NanoSeconds (startTime));
+  sourceApp.Stop (Seconds (endTime));
+
+  PacketSinkHelper sink ("ns3::TcpSocketFactory",
+                         InetSocketAddress (Ipv4Address::GetAny(), port));
+  ApplicationContainer sinkApp = sink.Install (servers.Get (receiverIndex));
+  sinkApp.Start (Seconds(startTime));
+  sinkApp.Stop (Seconds(endTime));
+}
+
+
+
+void InstallApplications (NodeContainer servers)
+{
+  NS_LOG_INFO ("Install Applications");
+
+  int totalServerCount = numLeaf * numServerPerLeaf;
+  std::vector<int> indexVector;
+  int flowid = 0;
+
+  for (int senderIndex = 0; senderIndex < totalServerCount; ++senderIndex) 
+  {
+    for (int receiverIndex = 0; receiverIndex < totalServerCount; ++receiverIndex)
+    {
+      if (senderIndex == receiverIndex) continue;
+
+      flowid++;
+      InstallTcpApplication(servers, senderIndex, receiverIndex, flowid);
+    } 
+  }
+}
+
+/* Utility functions */
+void ConfigTcp()
+{
+  NS_LOG_INFO ("Enabling Tcp");
+
+  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpNewReno::GetTypeId ()));
+  Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(packetSize));
+  Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
+  Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (1000)));
+  Config::SetDefault ("ns3::TcpSocket::PersistTimeout", TimeValue (MilliSeconds (1000)));
+  Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
+  Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (minRto)));
+  Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
+
+  Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (20)));
+  Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
+  Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
+  Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (0)); // disable dupack (the default setting in pfabric)
   
-  
+  return;
 }
 
 void RunSimulation()
@@ -121,20 +200,20 @@ void RunSimulation()
 void OutputMonitor (Ptr<FlowMonitor> flowMonitor)
 {
   std::stringstream flowMonitorFilename;
-  flowMonitorFilename << "pfabric.xml";
+  flowMonitorFilename << "pias.xml";
   flowMonitor->SerializeToXmlFile(flowMonitorFilename.str (), true, true);
 }
 
 int
-main(int argc, char *argv[])
+main (int argc, char *argv[])
 {
   CommandLine cmd;
   cmd.AddValue ("numSpine", "Number of spine switches", numSpine);
   cmd.AddValue ("numLeaf", "Number of leaf switches", numLeaf);
   cmd.AddValue ("numServerPerLeaf", "Number of servers per leaf switch", numServerPerLeaf);
-  cmd.AddValue ("leafSpineSpeed", "Link Speed between leaf and spind switches");
-  cmd.AddValue ("leafServerSpeed", "Link Speed between leaf switch and server");
-  cmd.AddValue("overSubRatio", "Oversubscription Ratio in the datacenter networks");
+  cmd.AddValue ("leafSpineSpeed", "Link Speed between leaf and spind switches", leafSpineSpeed);
+  cmd.AddValue ("leafServerSpeed", "Link Speed between leaf switch and server", leafServerSpeed);
+  cmd.AddValue("overSubRatio", "Oversubscription Ratio in the datacenter networks", overSubRatio);
   cmd.Parse (argc, argv);
 
   // Create point-to-point channel helper
