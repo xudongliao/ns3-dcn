@@ -66,7 +66,7 @@ TypeId PrioQueueDisc::GetTypeId (void)
                    MakePriomapAccessor (&PrioQueueDisc::m_prio2band),
                    MakePriomapChecker ())
     .AddAttribute ("EcnMarkingScheme", "ECN Marking Scheme: per-port or per-queue",
-                   UintegerValue (0),
+                   UintegerValue (PRIO_DISABLE_ECN),
                    MakeUintegerAccessor (&PrioQueueDisc::m_markingScheme),
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("EcnThreshold", "Single ECN marking threshold in Packets",
@@ -140,8 +140,8 @@ PrioQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
   bool retval = GetQueueDiscClass (band)->GetQueueDisc ()->Enqueue (item);
 
   // whether the packet need to be marked
-  if ((m_markingScheme == PER_PORT and GetTotalPkts() > m_thresh) or 
-       (m_markingScheme == PER_QUEUE and GetQueueDiscClass(band)->GetQueueDisc()->GetNPackets() > m_thresh))
+  if ((m_markingScheme == PRIO_PER_PORT_ECN and GetTotalPkts() > m_thresh) or 
+       (m_markingScheme == PRIO_PER_QUEUE_ECN and GetQueueDiscClass(band)->GetQueueDisc()->GetNPackets() > m_thresh))
     {
       int ret = MarkingEcn(item);
       if (ret  <= 0)
