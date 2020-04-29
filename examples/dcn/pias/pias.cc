@@ -15,9 +15,9 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("PiasExample");
 
-uint32_t numSpine = 4;	
-uint32_t numLeaf = 9;
-uint32_t numServerPerLeaf = 16;
+uint32_t numSpine = 2;	
+uint32_t numLeaf = 4;
+uint32_t numServerPerLeaf = 8;
 uint64_t leafSpineSpeed = 40000000000;
 uint64_t leafServerSpeed = 10000000000;
 int      overSubRatio = 1;
@@ -43,10 +43,8 @@ ConfigTopology(NodeContainer& spines, NodeContainer& leaves,
 {
   spines.Create (numSpine);
   leaves.Create (numLeaf);
-  servers.Create (numServerPerLeaf);
-  NS_LOG_UNCOND ("Spine: " << spines.GetN() << "; Leaves: " 
-                 << leaves.GetN() << "; serversPerLeaf: " 
-                 << servers.GetN());
+  servers.Create (numServerPerLeaf * numLeaf);
+
   // enable routing 
   Config::SetDefault("ns3::Ipv4GlobalRouting::RandomEcmpRouting", BooleanValue(true));
   internet.Install (servers);
@@ -76,6 +74,10 @@ void ConfigNetwork(std::vector<Ipv4Address>& leafNetworks,
                    NodeContainer& servers, PointToPointHelper& p2p,
                    Ipv4AddressHelper& ipv4, TrafficControlHelper& tc)
 {
+  NS_LOG_DEBUG ("num of spine switches: " << spines.GetN() <<
+                "num of leaf switches: " << leaves.GetN() << 
+                "num of server: " << servers.GetN());
+
   for (int i = 0; i < numLeaf; i++)
     {
       Ipv4Address network = ipv4.NewNetwork ();
@@ -91,27 +93,34 @@ void ConfigNetwork(std::vector<Ipv4Address>& leafNetworks,
           tc.Install (netDeviceContainer);
           Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
           ipv4.NewNetwork();
-          NS_LOG_UNCOND ("Leaf - " << i << " is connected to Server - " << j
+          NS_LOG_DEBUG ("Leaf - " << i << " is connected to Server - " << j
                    << " with address " << interfaceContainer.GetAddress(0)
                    << " <-> " << interfaceContainer.GetAddress (1)
-                   << " with port " << netDeviceContainer.Get (0)->GetIfIndex ()
+                   << " with NIC " << netDeviceContainer.Get (0)->GetIfIndex ()
                    << " <-> " << netDeviceContainer.Get (1)->GetIfIndex ());
           serverAddresses [serverIndex] = interfaceContainer.GetAddress (1);
         }
-        for (int k = 0; k < numSpine; k++)
-          {
-            for (int l = 0; l < pathLeafSpine; l++)
-              {
-                NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get(k));
-                p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (leafSpineSpeed)));
-                p2p.SetChannelAttribute ("Delay", TimeValue(MicroSeconds(10)));
-                p2p.SetQueue ("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize(ns3::PACKETS, bufferSize)));
-                NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);        
-                tc.Install (netDeviceContainer);
-                Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
-                ipv4.NewNetwork();
-              }
-          }
+      NS_LOG_DEBUG ("Create Link between leaf and spine");
+      for (int k = 0; k < numSpine; k++)
+        {
+          for (int l = 0; l < pathLeafSpine; l++)
+            {           
+              NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get(k));
+              p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (leafSpineSpeed)));
+              p2p.SetChannelAttribute ("Delay", TimeValue(MicroSeconds(10)));
+              p2p.SetQueue ("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize(ns3::PACKETS, bufferSize)));
+              NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);        
+              tc.Install (netDeviceContainer);
+              Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+              ipv4.NewNetwork();
+              NS_LOG_DEBUG ("Leaf - " << i << " is connected to Spine - " << k
+                  << " on Path- " << l
+                  << " with address " << ipv4InterfaceContainer.GetAddress(0)
+                  << " <-> " << ipv4InterfaceContainer.GetAddress (1)
+                  << " with NIC " << netDeviceContainer.Get (0)->GetIfIndex ()
+                  << " <-> " << netDeviceContainer.Get (1)->GetIfIndex ());
+            }
+        }
     }
 }
 
@@ -135,9 +144,10 @@ void InstallTcpApplication(NodeContainer servers, int senderIndex, int receiverI
                          InetSocketAddress (destAddress, port));
 
   source.SetAttribute ("SendSize", UintegerValue (packetSize));
-  source.SetAttribute ("MaxBytes", StringValue ("100KB"));
+  source.SetAttribute ("MaxBytes", UintegerValue (100 * 1000)); // 100KB, boundary of short and long flows
   // source.SetAttribute ("FlowId", UintegerValue (flowid));
 
+  NS_LOG_INFO ("Sender's IP is " << servers.Get(senderIndex)->GetObject<Ipv4>()->GetAddress(1,0).GetLocal() << ", Receiver's IP is " << destAddress << ", Port is " << port);
 
   ApplicationContainer sourceApp = source.Install (servers.Get (senderIndex));
   sourceApp.Start (NanoSeconds (startTime));
@@ -159,7 +169,6 @@ void InstallApplications (NodeContainer servers)
   int totalServerCount = numLeaf * numServerPerLeaf;
   std::vector<int> indexVector;
   int flowid = 0;
-
   for (int senderIndex = 0; senderIndex < totalServerCount; ++senderIndex) 
   {
     for (int receiverIndex = 0; receiverIndex < totalServerCount; ++receiverIndex)
@@ -177,9 +186,9 @@ void ConfigTcp()
 {
   NS_LOG_INFO ("Enabling Tcp");
 
-  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpNewReno::GetTypeId ()));
+  Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (ns3::TcpDctcp::GetTypeId ()));
   Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(packetSize));
-  Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
+  Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (1));
   Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (1000)));
   Config::SetDefault ("ns3::TcpSocket::PersistTimeout", TimeValue (MilliSeconds (1000)));
   Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
@@ -187,8 +196,8 @@ void ConfigTcp()
   Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
 
   Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (20)));
-  Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
-  Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
+  // Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
+  // Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
   Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (0)); // disable dupack (the default setting in pfabric)
   
   return;
@@ -212,6 +221,8 @@ int
 main (int argc, char *argv[])
 {
   NS_LOG_UNCOND ("Start PIAS Example");
+  ConfigTcp();
+
   CommandLine cmd;
   cmd.AddValue ("numSpine", "Number of spine switches", numSpine);
   cmd.AddValue ("numLeaf", "Number of leaf switches", numLeaf);
@@ -221,30 +232,32 @@ main (int argc, char *argv[])
   cmd.AddValue("overSubRatio", "Oversubscription Ratio in the datacenter networks", overSubRatio);
   cmd.Parse (argc, argv);
   
-  NS_LOG_UNCOND ("Create P2P");
+  NS_LOG_INFO ("Create P2P");
   // Create point-to-point channel helper
   PointToPointHelper p2pLeafSpine;
   p2pLeafSpine.SetDeviceAttribute ("DataRate", DataRateValue(DataRate(leafSpineSpeed)));
   p2pLeafSpine.SetChannelAttribute("Delay", TimeValue(MicroSeconds(40)));
   
-  NS_LOG_UNCOND ("Setting up spine-leaf topology");
+  NS_LOG_INFO ("Setting up spine-leaf topology");
   NodeContainer spines, leaves, servers;
   InternetStackHelper internet;
   PointToPointHelper p2p;
   Ipv4AddressHelper ipv4;
   TrafficControlHelper tc;
 
-  NS_LOG_UNCOND ("Create Topo");
+  NS_LOG_INFO ("Create Topo");
   ConfigTopology(spines, leaves, servers, internet, p2p, ipv4, tc);
   std::vector<Ipv4Address> leafNetworks (numLeaf);
   std::vector<Ipv4Address> serverAddresses (numServerPerLeaf * numLeaf);
 
-  NS_LOG_UNCOND ("Create Network");
+  NS_LOG_INFO ("Create Network");
   ConfigNetwork (leafNetworks, serverAddresses, spines, leaves, servers, p2p, ipv4, tc);
 
-  NS_LOG_UNCOND ("Populate global routing tables");
+  NS_LOG_INFO ("Populate global routing tables");
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
+  NS_LOG_INFO ("Install PIAS application");
+  InstallApplications (servers);
   Ptr<FlowMonitor> flowMonitor;
   FlowMonitorHelper flowHelper;
   flowMonitor = flowHelper.InstallAll();
