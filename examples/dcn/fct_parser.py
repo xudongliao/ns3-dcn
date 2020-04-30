@@ -176,9 +176,9 @@ def parse (fileName):
                 continue
             flow_count += 1
             total_fct += flow.fct
-	        total_packets += flow.txPackets
+            total_packets += flow.txPackets
             total_rx_packets += flow.rxPackets
-	        total_lost_packets += flow.lostPackets
+            total_lost_packets += flow.lostPackets
             flow_list.append(flow)
             if flow.txBytes > 10000000:
                 large_flow_count += 1
@@ -252,31 +252,28 @@ def main (argv):
     total_rx = 0
     flow_count = 0
     total_large_throughput = 0
-    print files
+    # print files
     for fileName in files:
-	    print (fileName)
-        result = parse (fileName)
+        print fileName
+        result = parse(fileName)
         total_fct += result['avg_fct']
         total_large_fct += result['avg_large_fct']
         total_small_fct += result['avg_small_fct']
         total_small_flow_99 += result['small_flow_99']
-#       total_flow_99 += result['flow_99']
+        # total_flow_99 += result['flow_99']
         total_tx += result['total_tx']
         total_rx += result['total_rx']
         flow_count += result['flow_count']
-#       total_large_throughput += result['large_throughput']
-
-	print ('')
-
+        # total_large_throughput += result['large_throughput']
     print "AVG FCT: %6f" % (total_fct / len(files))
     print "AVG Large flow FCT: %6f" % (total_large_fct / len(files))
     print "AVG Small flow FCT: %6f" % (total_small_fct / len(files))
     print "AVG Small flow 99 FCT: %6f" % (total_small_flow_99 / len(files))
-#   print "AVG Flow 99 FCT: %6f" % (total_flow_99 / len(files))
+    # print "AVG Flow 99 FCT: %6f" % (total_flow_99 / len(files))
     print "Total Flow: %6f" % (flow_count / len(files))
     print "Total TX: %6f" % (total_tx / len(files))
     print "Total RX: %6f" % (total_rx / len(files))
-#   print "Total Large Throughput: %6f " % (total_large_throughput / len(files))
+    # print "Total Large Throughput: %6f " % (total_large_throughput / len(files))
 
 if __name__ == '__main__':
     main(sys.argv)
